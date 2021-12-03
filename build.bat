@@ -1,3 +1,3 @@
 @echo off
 
-vpc.exe -Vvp.vpo -B -CW mbsort.pas
+vpc.exe -Vvp.vpo -B -CW mbtool.pas
