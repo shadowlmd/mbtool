@@ -8,7 +8,9 @@ uses
   skCommon;
 
 const
-  DefTZUTC : String[5] = '0000';
+  SortBase  : Boolean   = false;
+  DedupBase : Boolean   = false;
+  DefTZUTC  : String[5] = '0000';
 
 type
   TIndexRecCollection = object(TSortedCollection)
@@ -58,7 +60,7 @@ begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
   I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
-  if I <> 0 then Compare := I else
+  if SortBase and (I <> 0) then Compare := I else
   if Rec1.MSGID^ <> Rec2.MSGID^ then Compare := -1 else
   if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
   if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
@@ -103,32 +105,53 @@ begin
   end;
   if TMBF = mbfUnknown then
   begin
-    WriteLn('Invalid message base specification: ', S);
+    WriteLn('[CRIT] Invalid message base specification: ', S);
     Halt(1);
   end;
 end;
 
 begin
-  if ParamCount < 2 then
+  if ParamCount < 4 then
   begin
     WriteLn('Usage: ');
-    WriteLn('  ', ParamStr(0), ' <SourceBase> <DestBase> [DefTZUTC]');
+    WriteLn('  ', ParamStr(0), ' -src <SourceBase> -dst <DestBase> [-deftz <DefTZUTC>] [-sort] [-dedup]');
     WriteLn;
     WriteLn('Examples:');
-    WriteLn('  ', ParamStr(0), ' Jc:\fido\msgbase\jam\ruftndev Sc:\fido\msgbase\squish\ruftndev');
-    WriteLn('  ', ParamStr(0), ' Jc:\fido\msgbase\jam\r5sysop Sc:\fido\msgbase\squish\r50sysop 0300');
-    WriteLn('  ', ParamStr(0), ' Jc:\fido\msgbase\jam\enetsys Sc:\fido\msgbase\squish\enetsys -0500');
-    WriteLn('  ', ParamStr(0), ' Mc:\fido\netmail Sc:\fido\msgbase\squish\netmail');
+    WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\ruftndev -dst Sc:\fido\msgbase\squish\ruftndev -dedup');
+    WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\r5sysop -dst Sc:\fido\msgbase\squish\r50sysop -deftz 0300 -sort');
+    WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\enetsys -dst Sc:\fido\msgbase\squish\enetsys -deftz -0500 -sort -dedup');
+    WriteLn('  ', ParamStr(0), ' -src Mc:\fido\msgbase\msg\netmail -dst Sc:\fido\msgbase\squish\netmail -sort');
     Halt(1);
   end;
 
-  SourceBaseID := ParamStr(1);
-  DestBaseID := ParamStr(2);
-  if ParamCount > 2 then
-    DefTZUTC := ParamStr(3);
+  for I := 1 to ParamCount do
+  begin
+    if ParamStr(I) = '-src' then
+    begin
+      Inc(I);
+      SourceBaseID := ParamStr(I);
+    end else
+    if ParamStr(I) = '-dst' then
+    begin
+      Inc(I);
+      DestBaseID := ParamStr(I);
+    end else
+    if ParamStr(I) = '-deftz' then
+    begin
+      Inc(I);
+      DefTZUTC := ParamStr(I);
+    end else
+    if ParamStr(I) = '-sort' then
+      SortBase := true
+    else
+    if ParamStr(I) = '-dedup' then
+      DedupBase := true
+    else
+      WriteLn('[WARN] Unknown command line parameter: ', ParamStr(I));
+  end;
 
-  Val(DefTZUTC, DefTZUTCI, I);
-  if I <> 0 then
+  Val(DefTZUTC, DefTZUTCI, T);
+  if T <> 0 then
   begin
     WriteLn('[CRIT] Incorrect TZUTC specified: ', DefTZUTC);
     Halt(1);
@@ -159,7 +182,7 @@ begin
   WriteLn('[INFO] Converting message base ', SourceBasePath, ' (', SourceFormat, ') to ', DestBasePath, ' (', DestFormat, ')');
 
   IndexRecCollection.Init(SourceBase^.GetCount, 5);
-  IndexRecCollection.Duplicates := false;
+  IndexRecCollection.Duplicates := not DedupBase;
 
   GetMem(Line, MaxLineSize);
 
@@ -179,19 +202,22 @@ begin
         SourceBase^.GetFromAddress(ToAddress);
         SourceBase^.GetToAddress(ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
-        if SourceBase^.GetKludge(#1'TZUTC', S) then
-          S := ExtractWord(2, S, [' '])
-        else
-          S := DefTZUTC;
-        Val(S, I, T);
-        if T <> 0 then
+        if SortBase then
         begin
-          WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
-          I := DefTZUTCI;
+          if SourceBase^.GetKludge(#1'TZUTC', S) then
+            S := ExtractWord(2, S, [' '])
+          else
+            S := DefTZUTC;
+          Val(S, I, T);
+          if T <> 0 then
+          begin
+            WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
+            I := DefTZUTCI;
+          end;
+          MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
+          T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
+          UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
         end;
-        MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
-        T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
-        UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
         if SourceBase^.GetKludge(#1'MSGID', S) then
           S := Copy(S, 9, 255)
         else
