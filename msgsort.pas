@@ -35,7 +35,7 @@ var
   SourceBaseID, DestBaseID, SourceBasePath, DestBasePath, SourceFormat, DestFormat, S: String;
   IndexRec: PIndexRec;
   IndexRecCollection: TIndexRecCollection;
-  I: Longint;
+  DefTZUTCI, I, T: Longint;
   Line: PChar;
 
 function NewPString(const S: String): PString;
@@ -90,25 +90,6 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
-procedure DateTimeToUTC(const Offset: String; const DateTimeLocal: TMessageBaseDateTime; var DateTimeUTC: TMessageBaseDateTime);
-var
-  OffsetInt, Err, T: Longint;
-  HOffset, MOffset: Shortint;
-begin
-  Val(Offset, OffsetInt, Err);
-  if Err <> 0 then
-  begin
-    WriteLn('Cannot process TZUTC offset: "', Offset, '"');
-    DateTimeUTC := DateTimeLocal;
-    Exit;
-  end;
-  HOffset := OffsetInt div 100;
-  MOffset := OffsetInt mod 100;
-  MessageBaseDateTimeToUnixDateTime(DateTimeLocal, T);
-  T := T - (HOffset * 3600) - (MOffset * 60);
-  UnixDateTimeToMessageBaseDateTime(T, DateTimeUTC);
-end;
-
 procedure DecodeMessageBaseID(const S: String; var Format, Path: String);
 var
   TMBF: TMessageBaseFormat;
@@ -146,29 +127,36 @@ begin
   if ParamCount > 2 then
     DefTZUTC := ParamStr(3);
 
+  Val(DefTZUTC, DefTZUTCI, I);
+  if I <> 0 then
+  begin
+    WriteLn('[CRIT] Incorrect TZUTC specified: ', DefTZUTC);
+    Halt(1);
+  end;
+
   DecodeMessageBaseID(SourceBaseID, SourceFormat, SourceBasePath);
   DecodeMessageBaseID(DestBaseID, DestFormat, DestBasePath);
 
   if ExistMessageBase(DestBaseID) then
   begin
-    WriteLn('Destination base ', DestBasePath, ' (', DestFormat, ') already exists!');
+    WriteLn('[CRIT] Destination base ', DestBasePath, ' (', DestFormat, ') already exists!');
     Halt(1);
   end;
 
   if not OpenMessageBase(SourceBase, SourceBaseID) then
   begin
-    WriteLn('Failed to open source message base ', SourceBasePath, ': ', ExplainStatus(OpenStatus));
+    WriteLn('[CRIT] Failed to open source message base ', SourceBasePath, ': ', ExplainStatus(OpenStatus));
     Halt(1);
   end;
 
   if not OpenOrCreateMessageBase(DestBase, DestBaseID) then
   begin
     CloseMessageBase(SourceBase);
-    WriteLn('Failed to create destination message base ', DestBasePath, ': ', ExplainStatus(OpenStatus));
+    WriteLn('[CRIT] Failed to create destination message base ', DestBasePath, ': ', ExplainStatus(OpenStatus));
     Halt(1);
   end;
 
-  WriteLn('Converting message base ', SourceBasePath, ' (', SourceFormat, ') to ', DestBasePath, ' (', DestFormat, ')');
+  WriteLn('[INFO] Converting message base ', SourceBasePath, ' (', SourceFormat, ') to ', DestBasePath, ' (', DestFormat, ')');
 
   IndexRecCollection.Init(SourceBase^.GetCount, 5);
   IndexRecCollection.Duplicates := false;
@@ -195,7 +183,15 @@ begin
           S := ExtractWord(2, S, [' '])
         else
           S := DefTZUTC;
-        DateTimeToUTC(S, WrittenDateUTC, WrittenDateUTC);
+        Val(S, I, T);
+        if T <> 0 then
+        begin
+          WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
+          I := DefTZUTCI;
+        end;
+        MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
+        T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
+        UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
         if SourceBase^.GetKludge(#1'MSGID', S) then
           S := Copy(S, 9, 255)
         else
@@ -203,11 +199,11 @@ begin
         MSGID := NewPString(S);
       end;
       IndexRecCollection.Insert(IndexRec);
-      SourceBase^.CloseMessage; // тут падает на msg
+      SourceBase^.CloseMessage;
     end else
     begin
-      WriteLn('Failed to open message: ', ExplainStatus(SourceBase^.GetStatus));
-      WriteLn('Aborted!');
+      WriteLn('[CRIT] Failed to open message: ', ExplainStatus(SourceBase^.GetStatus));
+      WriteLn('[CRIT] Aborted!');
       break;
     end;
     SourceBase^.SeekNext;
@@ -228,19 +224,19 @@ begin
     SourceBase^.Seek(IndexRec^.Index);
     if SourceBase^.Current <> IndexRec^.Index then
     begin
-      WriteLn('Failed to seek to message #', IndexRec^.Index, ' - aborting!');
+      WriteLn('[CRIT] Failed to seek to message #', IndexRec^.Index, ' - aborting!');
       break;
     end;
     if not SourceBase^.OpenMessage then
     begin
-      WriteLn('Failed to open message #', IndexRec^.Index, ': ', ExplainStatus(SourceBase^.GetStatus));
-      WriteLn('Aborted!');
+      WriteLn('[CRIT] Failed to open message #', IndexRec^.Index, ': ', ExplainStatus(SourceBase^.GetStatus));
+      WriteLn('[CRIT] Aborted!');
       break;
     end;
     if not DestBase^.CreateNewMessage then
     begin
-      WriteLn('Failed to create message:', IndexRec^.Index, ': ', ExplainStatus(DestBase^.GetStatus));
-      WriteLn('Aborted!');
+      WriteLn('[CRIT] Failed to create message:', IndexRec^.Index, ': ', ExplainStatus(DestBase^.GetStatus));
+      WriteLn('[CRIT] Aborted!');
       break;
     end;
     DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
@@ -265,7 +261,7 @@ begin
     DestBase^.SetAttribute(maRRc, SourceBase^.GetAttribute(maRRc));
     DestBase^.SetAttribute(maARq, SourceBase^.GetAttribute(maARq));
     DestBase^.SetAttribute(maURq, SourceBase^.GetAttribute(maURq));
-    DestBase^.SetAttribute(maScanned, SourceBase^.GetAttribute(maScanned));
+    DestBase^.SetAttribute(maScanned, SourceBase^.GetAttribute(maScanned) or SourceBase^.GetAttribute(maSent));
     SourceBase^.GetWrittenDateTime(MsgDT);
     DestBase^.SetWrittenDateTime(MsgDT);
     SourceBase^.GetArrivedDateTime(MsgDT);
@@ -280,7 +276,7 @@ begin
       DestBase^.PutStringPChar(Line);
     end;
     if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
-      WriteLn('Warning! Message #', IndexRec^.Index, ' text size changed!');
+      WriteLn('[WARN] Message #', IndexRec^.Index, ' -> #', DestBase^.Current, ' text size changed!');
     DestBase^.WriteMessage;
     DestBase^.CloseMessage;
     SourceBase^.CloseMessage;
