@@ -1,5 +1,3 @@
-program msgsort;
-
 uses
   VPUtils,
   Objects,
@@ -105,7 +103,7 @@ begin
   end;
   if TMBF = mbfUnknown then
   begin
-    WriteLn('[CRIT] Invalid message base specification: ', S);
+    WriteLn('[ERR] Invalid message base specification: ', S);
     Halt(1);
   end;
 end;
@@ -153,7 +151,7 @@ begin
   Val(DefTZUTC, DefTZUTCI, T);
   if T <> 0 then
   begin
-    WriteLn('[CRIT] Incorrect TZUTC specified: ', DefTZUTC);
+    WriteLn('[ERR] Incorrect TZUTC specified: ', DefTZUTC);
     Halt(1);
   end;
 
@@ -287,7 +285,7 @@ begin
     DestBase^.SetAttribute(maRRc, SourceBase^.GetAttribute(maRRc));
     DestBase^.SetAttribute(maARq, SourceBase^.GetAttribute(maARq));
     DestBase^.SetAttribute(maURq, SourceBase^.GetAttribute(maURq));
-    DestBase^.SetAttribute(maScanned, SourceBase^.GetAttribute(maScanned) or SourceBase^.GetAttribute(maSent));
+    DestBase^.SetAttribute(maScanned, SourceBase^.GetAttribute(maScanned) or (SourceBase^.GetAttribute(maLocal) and SourceBase^.GetAttribute(maSent)));
     SourceBase^.GetWrittenDateTime(MsgDT);
     DestBase^.SetWrittenDateTime(MsgDT);
     SourceBase^.GetArrivedDateTime(MsgDT);
