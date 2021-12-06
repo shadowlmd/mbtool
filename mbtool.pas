@@ -1,5 +1,6 @@
+{$MODE objfpc}
+
 uses
-  VPUtils,
   Objects,
   skMHL,
   skOpen,
@@ -35,7 +36,8 @@ var
   SourceBaseID, DestBaseID, SourceBasePath, DestBasePath, SourceFormat, DestFormat, S: String;
   IndexRec: PIndexRec;
   IndexRecCollection: TIndexRecCollection;
-  DefTZUTCI, I, T: Longint;
+  DefTZUTCI, I, Err: Longint;
+  T: QWord;
   Line: PChar;
 
 function NewPString(const S: String): PString;
@@ -122,7 +124,8 @@ begin
     Halt(1);
   end;
 
-  for I := 1 to ParamCount do
+  I := 1;
+  while I <= ParamCount do
   begin
     if ParamStr(I) = '-src' then
     begin
@@ -146,10 +149,11 @@ begin
       DedupBase := true
     else
       WriteLn('[WARN] Unknown command line parameter: ', ParamStr(I));
+    Inc(I);
   end;
 
-  Val(DefTZUTC, DefTZUTCI, T);
-  if T <> 0 then
+  Val(DefTZUTC, DefTZUTCI, Err);
+  if Err <> 0 then
   begin
     WriteLn('[ERR] Incorrect TZUTC specified: ', DefTZUTC);
     Halt(1);
@@ -157,6 +161,9 @@ begin
 
   DecodeMessageBaseID(SourceBaseID, SourceFormat, SourceBasePath);
   DecodeMessageBaseID(DestBaseID, DestFormat, DestBasePath);
+
+  MaxLineSize := $100000;
+  MaxMessageSize := $200000;
 
   if ExistMessageBase(DestBaseID) then
   begin
@@ -206,8 +213,8 @@ begin
             S := ExtractWord(2, S, [' '])
           else
             S := DefTZUTC;
-          Val(S, I, T);
-          if T <> 0 then
+          Val(S, I, Err);
+          if Err <> 0 then
           begin
             WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
             I := DefTZUTCI;
