@@ -235,7 +235,9 @@ begin
     begin
       WriteLn('[CRIT] Failed to open message: ', ExplainStatus(SourceBase^.GetStatus));
       WriteLn('[CRIT] Aborted!');
-      break;
+      CloseMessageBase(DestBase);
+      CloseMessageBase(SourceBase);
+      Halt(1);
     end;
     SourceBase^.SeekNext;
   end;
