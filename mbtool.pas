@@ -3,6 +3,7 @@
 uses
   Objects,
   skMHL,
+  skMHLsq,
   skOpen,
   skCommon;
 
@@ -170,12 +171,14 @@ begin
     Halt(1);
   end;
 
+  SquishMemoryIndex := True;
   if not OpenMessageBase(SourceBase, SourceBaseID) then
   begin
     WriteLn('[CRIT] Failed to open source message base ', SourceBasePath, ': ', ExplainStatus(OpenStatus));
     Halt(1);
   end;
 
+  SquishMemoryIndex := False;
   if not OpenOrCreateMessageBase(DestBase, DestBaseID) then
   begin
     CloseMessageBase(SourceBase);
