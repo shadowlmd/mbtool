@@ -34,6 +34,7 @@ var
   SourceBase, DestBase: PMessageBase;
   MsgDT: TMessageBaseDateTime;
   SourceBaseID, DestBaseID, SourceBasePath, DestBasePath, SourceFormat, DestFormat, S: String;
+  SourceTMBF, DestTMBF: TMessageBaseFormat;
   IndexRec: PIndexRec;
   IndexRecCollection: TIndexRecCollection;
   DefTZUTCI, I, Err: Longint;
@@ -92,9 +93,7 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
-procedure DecodeMessageBaseID(const S: String; var Format, Path: String);
-var
-  TMBF: TMessageBaseFormat;
+procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var Format, Path: String);
 begin
   SplitID(S, TMBF, Path);
   case TMBF of
@@ -159,8 +158,8 @@ begin
     Halt(1);
   end;
 
-  DecodeMessageBaseID(SourceBaseID, SourceFormat, SourceBasePath);
-  DecodeMessageBaseID(DestBaseID, DestFormat, DestBasePath);
+  DecodeMessageBaseID(SourceBaseID, SourceTMBF, SourceFormat, SourceBasePath);
+  DecodeMessageBaseID(DestBaseID, DestTMBF, DestFormat, DestBasePath);
 
   MaxLineSize := $100000;
   MaxMessageSize := $200000;
