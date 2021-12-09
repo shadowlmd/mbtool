@@ -33,6 +33,7 @@ type
 
 var
   SourceBase, DestBase: PMessageBase;
+  SourceTextStream, DestTextStream: PMessageBaseStream;
   MsgDT: TMessageBaseDateTime;
   SourceBaseID, DestBaseID, SourceBasePath, DestBasePath, SourceFormat, DestFormat, S: String;
   SourceTMBF, DestTMBF: TMessageBaseFormat;
@@ -40,7 +41,6 @@ var
   IndexRecCollection: TIndexRecCollection;
   DefTZUTCI, I, Err: Longint;
   T: QWord;
-  Line: PChar;
 
 function NewPString(const S: String): PString;
 begin
@@ -162,8 +162,8 @@ begin
   DecodeMessageBaseID(SourceBaseID, SourceTMBF, SourceFormat, SourceBasePath);
   DecodeMessageBaseID(DestBaseID, DestTMBF, DestFormat, DestBasePath);
 
-  skCommon.MaxLineSize := $100000;
-  skCommon.MaxMessageSize := $200000;
+  skCommon.MaxLineSize := 16384;
+  skCommon.MaxMessageSize := 524288;
 
   if ExistMessageBase(DestBaseID) then
   begin
@@ -191,9 +191,8 @@ begin
   IndexRecCollection.Init(SourceBase^.GetCount, 5);
   IndexRecCollection.Duplicates := not DedupBase;
 
-  GetMem(Line, MaxLineSize);
-
   SourceBase^.SetBaseType(btNetmail);
+
   SourceBase^.Seek(0);
   while SourceBase^.SeekFound do
   begin
@@ -247,6 +246,7 @@ begin
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
     IndexRec := IndexRecCollection.At(I);
+
     if IsCleanAddress(IndexRec^.ToAddress) then
     begin
       SourceBase^.SetBaseType(btEchomail);
@@ -256,24 +256,29 @@ begin
       SourceBase^.SetBaseType(btNetmail);
       DestBase^.SetBaseType(btNetmail);
     end;
+
     SourceBase^.Seek(IndexRec^.Index);
     if SourceBase^.Current <> IndexRec^.Index then
     begin
       WriteLn('[CRIT] Failed to seek to message #', IndexRec^.Index, ' - aborting!');
       break;
     end;
+
     if not SourceBase^.OpenMessage then
     begin
       WriteLn('[CRIT] Failed to open message #', IndexRec^.Index, ': ', ExplainStatus(SourceBase^.GetStatus));
       WriteLn('[CRIT] Aborted!');
       break;
     end;
+
     if not DestBase^.CreateNewMessage then
     begin
       WriteLn('[CRIT] Failed to create message:', IndexRec^.Index, ': ', ExplainStatus(DestBase^.GetStatus));
       WriteLn('[CRIT] Aborted!');
       break;
     end;
+
+    { copy message headers }
     DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
     if not IsCleanAddress(IndexRec^.ToAddress) then
       DestBase^.SetToAddress(IndexRec^.ToAddress);
@@ -302,22 +307,25 @@ begin
     SourceBase^.GetArrivedDateTime(MsgDT);
     DestBase^.SetArrivedDateTime(MsgDT);
     DestBase^.SetRead(SourceBase^.GetRead);
-    SourceBase^.SetTextPos(0);
-    DestBase^.SetTextPos(0);
-    DestBase^.TruncateText;
-    while not SourceBase^.EndOfMessage do
-    begin
-      SourceBase^.GetStringPChar(Line, MaxLineSize);
-      DestBase^.PutStringPChar(Line);
-    end;
+
+    { copy message text }
+    SourceTextStream := SourceBase^.GetMessageTextStream;
+    DestTextStream := DestBase^.GetMessageTextStream;
+    SourceTextStream^.Seek(0);
+    DestTextStream^.Seek(0);
+    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
+    DestTextStream^.Truncate;
+
     if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
       WriteLn('[WARN] Message #', IndexRec^.Index, ' -> #', DestBase^.Current, ' text size changed!');
+
     DestBase^.WriteMessage;
     DestBase^.CloseMessage;
+
     SourceBase^.CloseMessage;
   end;
   CloseMessageBase(DestBase);
   CloseMessageBase(SourceBase);
+
   IndexRecCollection.Done;
-  FreeMem(Line, MaxLineSize);
 end.
