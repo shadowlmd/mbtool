@@ -162,8 +162,8 @@ begin
   DecodeMessageBaseID(SourceBaseID, SourceTMBF, SourceFormat, SourceBasePath);
   DecodeMessageBaseID(DestBaseID, DestTMBF, DestFormat, DestBasePath);
 
-  MaxLineSize := $100000;
-  MaxMessageSize := $200000;
+  skCommon.MaxLineSize := $100000;
+  skCommon.MaxMessageSize := $200000;
 
   if ExistMessageBase(DestBaseID) then
   begin
@@ -171,14 +171,14 @@ begin
     Halt(1);
   end;
 
-  SquishMemoryIndex := True;
+  skMHLsq.SquishMemoryIndex := True;
   if not OpenMessageBase(SourceBase, SourceBaseID) then
   begin
     WriteLn('[CRIT] Failed to open source message base ', SourceBasePath, ': ', ExplainStatus(OpenStatus));
     Halt(1);
   end;
 
-  SquishMemoryIndex := False;
+  skMHLsq.SquishMemoryIndex := False;
   if not OpenOrCreateMessageBase(DestBase, DestBaseID) then
   begin
     CloseMessageBase(SourceBase);
