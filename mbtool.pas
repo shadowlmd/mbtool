@@ -279,7 +279,8 @@ begin
     end;
 
     { copy message headers }
-    DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
+    if Length(IndexRec^.MSGID^) > 0 then
+      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
     if not IsCleanAddress(IndexRec^.ToAddress) then
       DestBase^.SetToAddress(IndexRec^.ToAddress);
     DestBase^.SetFromAddress(IndexRec^.ToAddress, false);
