@@ -20,7 +20,7 @@ type
   end;
 
   PIndexRec = ^TIndexRec;
-  TIndexRec = packed record
+  TIndexRec = record
     Index: Longint;
     WrittenDateUTC: TMessageBaseDateTime;
     FromAddress: TAddress;
