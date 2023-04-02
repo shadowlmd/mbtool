@@ -40,7 +40,7 @@ var
   IndexRec: PIndexRec;
   IndexRecCollection: TIndexRecCollection;
   DefTZUTCI, I, Err: Longint;
-  T: QWord;
+  T: Int64;
 
 function NewPString(const S: String): PString;
 begin
