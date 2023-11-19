@@ -205,8 +205,7 @@ begin
         FromName := NewPString(SourceBase^.GetFrom);
         ToName := NewPString(SourceBase^.GetTo);
         Subject := NewPString(SourceBase^.GetSubject);
-        SourceBase^.GetFromAddress(ToAddress);
-        SourceBase^.GetToAddress(ToAddress);
+        SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
         if SortBase then
         begin
@@ -279,11 +278,6 @@ begin
     end;
 
     { copy message headers }
-    if Length(IndexRec^.MSGID^) > 0 then
-      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
-    if not IsCleanAddress(IndexRec^.ToAddress) then
-      DestBase^.SetToAddress(IndexRec^.ToAddress);
-    DestBase^.SetFromAddress(IndexRec^.ToAddress, false);
     DestBase^.SetTo(IndexRec^.ToName^);
     DestBase^.SetFrom(IndexRec^.FromName^);
     DestBase^.SetSubject(IndexRec^.Subject^);
@@ -319,6 +313,15 @@ begin
 
     if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
       WriteLn('[WARN] Message #', IndexRec^.Index, ' -> #', DestBase^.Current, ' text size changed!');
+
+    { set from/to addresses because this may require adding kludges that were not present in original message }
+    if not IsCleanAddress(IndexRec^.ToAddress) then
+      DestBase^.SetToAddress(IndexRec^.ToAddress);
+    DestBase^.SetFromAddress(IndexRec^.FromAddress, false);
+
+    { set MSGID kludge once again after calling SetFromAddress to keep original one }
+    if Length(IndexRec^.MSGID^) > 0 then
+      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
 
     DestBase^.WriteMessage;
     DestBase^.CloseMessage;
