@@ -196,7 +196,7 @@ begin
   SourceBase^.Seek(0);
   while SourceBase^.SeekFound do
   begin
-    if SourceBase^.OpenMessageHeader then
+    if SourceBase^.OpenMessage then
     begin
       New(IndexRec);
       with IndexRec^ do
