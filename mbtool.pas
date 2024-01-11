@@ -3,7 +3,6 @@
 uses
   Objects,
   skMHL,
-  skMHLsq,
   skOpen,
   skCommon;
 
@@ -21,7 +20,7 @@ type
 
   PIndexRec = ^TIndexRec;
   TIndexRec = record
-    Index: Longint;
+    Index, MsgNum: Longint;
     WrittenDateUTC: TMessageBaseDateTime;
     FromAddress: TAddress;
     ToAddress: TAddress;
@@ -104,10 +103,10 @@ procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var
 begin
   SplitID(S, TMBF, Path);
   case TMBF of
-    mbfJam: Format := 'jam';
-    mbfMSG: Format := 'msg';
-    mbfSquish: Format := 'squish';
-    mbfUnknown: Format := 'unknown';
+    mbfJam: Format := 'JAM';
+    mbfMSG: Format := 'MSG';
+    mbfSquish: Format := 'Squish';
+    mbfUnknown: Format := 'Unknown';
   end;
   if TMBF = mbfUnknown then
   begin
@@ -177,14 +176,12 @@ begin
     Halt(1);
   end;
 
-  skMHLsq.SquishMemoryIndex := True;
   if not OpenMessageBase(SourceBase, SourceBaseID) then
   begin
     WriteLn('[CRIT] Failed to open source message base ', SourceBasePath, ': ', ExplainStatus(OpenStatus));
     Halt(1);
   end;
 
-  skMHLsq.SquishMemoryIndex := False;
   if not OpenOrCreateMessageBase(DestBase, DestBaseID) then
   begin
     CloseMessageBase(SourceBase);
@@ -207,7 +204,8 @@ begin
       New(IndexRec);
       with IndexRec^ do
       begin
-        Index := SourceBase^.Current;
+        Index := SourceBase^.GetLocation;
+        MsgNum := SourceBase^.Current;
         FromName := NewPString(SourceBase^.GetFrom);
         ToName := NewPString(SourceBase^.GetTo);
         Subject := NewPString(SourceBase^.GetSubject);
@@ -262,28 +260,47 @@ begin
       DestBase^.SetBaseType(btNetmail);
     end;
 
-    SourceBase^.Seek(IndexRec^.Index);
-    if SourceBase^.Current <> IndexRec^.Index then
+    SourceBase^.SetLocation(IndexRec^.Index);
+    if not SourceBase^.SeekFound or (SourceBase^.Current <> IndexRec^.MsgNum) then
     begin
-      WriteLn('[CRIT] Failed to seek to message #', IndexRec^.Index, ' - aborting!');
+      WriteLn('[CRIT] Failed to seek to message #', IndexRec^.MsgNum, ' - aborting!');
       break;
     end;
 
     if not SourceBase^.OpenMessage then
     begin
-      WriteLn('[CRIT] Failed to open message #', IndexRec^.Index, ': ', ExplainStatus(SourceBase^.GetStatus));
+      WriteLn('[CRIT] Failed to open message #', IndexRec^.MsgNum, ': ', ExplainStatus(SourceBase^.GetStatus));
       WriteLn('[CRIT] Aborted!');
       break;
     end;
 
     if not DestBase^.CreateNewMessage then
     begin
-      WriteLn('[CRIT] Failed to create message:', IndexRec^.Index, ': ', ExplainStatus(DestBase^.GetStatus));
+      WriteLn('[CRIT] Failed to create message: ', ExplainStatus(DestBase^.GetStatus));
       WriteLn('[CRIT] Aborted!');
       break;
     end;
 
+    { copy message text first because other manipulations may set additional kludges }
+    SourceTextStream := SourceBase^.GetMessageTextStream;
+    DestTextStream := DestBase^.GetMessageTextStream;
+    SourceTextStream^.Seek(0);
+    DestTextStream^.Seek(0);
+    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
+    DestTextStream^.Truncate;
+
+    if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
+      WriteLn('[WARN] Message #', IndexRec^.MsgNum, ' -> #', DestBase^.Current, ' text size changed!');
+
     { copy message headers }
+    if not (IsCleanAddress(IndexRec^.FromAddress) or IsCleanAddress(IndexRec^.ToAddress)) then
+      DestBase^.SetFromAndToAddress(IndexRec^.FromAddress, IndexRec^.ToAddress, false)
+    else
+    if not IsCleanAddress(IndexRec^.FromAddress) then
+      DestBase^.SetFromAddress(IndexRec^.FromAddress, false)
+    else
+    if not IsCleanAddress(IndexRec^.ToAddress) then
+      DestBase^.SetToAddress(IndexRec^.ToAddress);
     DestBase^.SetTo(IndexRec^.ToName^);
     DestBase^.SetFrom(IndexRec^.FromName^);
     DestBase^.SetSubject(IndexRec^.Subject^);
@@ -309,25 +326,12 @@ begin
     DestBase^.SetArrivedDateTime(MsgDT);
     DestBase^.SetRead(SourceBase^.GetRead);
 
-    { copy message text }
-    SourceTextStream := SourceBase^.GetMessageTextStream;
-    DestTextStream := DestBase^.GetMessageTextStream;
-    SourceTextStream^.Seek(0);
-    DestTextStream^.Seek(0);
-    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
-    DestTextStream^.Truncate;
-
-    if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
-      WriteLn('[WARN] Message #', IndexRec^.Index, ' -> #', DestBase^.Current, ' text size changed!');
-
-    { set from/to addresses because this may require adding kludges that were not present in original message }
-    if not IsCleanAddress(IndexRec^.ToAddress) then
-      DestBase^.SetToAddress(IndexRec^.ToAddress);
-    DestBase^.SetFromAddress(IndexRec^.FromAddress, false);
-
-    { set MSGID kludge once again after calling SetFromAddress to keep original one }
+    { overwrite generated MSGID kludge with the original one }
+    { or delete it if original message didn't have it }
     if Length(IndexRec^.MSGID^) > 0 then
-      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^);
+      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^)
+    else
+      DestBase^.DeleteKludge(#1'MSGID:');
 
     DestBase^.WriteMessage;
     DestBase^.CloseMessage;
