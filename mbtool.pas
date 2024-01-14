@@ -60,14 +60,15 @@ var
 begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
-  I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
-  if I <> 0 then
+  if SortBase then
   begin
-    if SortBase then
-      Compare := I   // sort
-    else
-      Compare := -1; // just don't deduplicate
-  end else
+    I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
+    if I <> 0 then
+    begin
+      Compare := I;
+      exit;
+    end;
+  end;
   if Rec1.MSGID^ <> Rec2.MSGID^ then Compare := -1 else
   if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
   if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
