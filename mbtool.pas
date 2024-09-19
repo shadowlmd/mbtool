@@ -124,7 +124,7 @@ begin
     WriteLn;
     WriteLn('Examples:');
     WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\ruftndev -dst Sc:\fido\msgbase\squish\ruftndev -dedup');
-    WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\r5sysop -dst Sc:\fido\msgbase\squish\r50sysop -deftz 0300 -sort');
+    WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\r50sysop -dst Sc:\fido\msgbase\squish\r50sysop -deftz 0300 -sort');
     WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\enetsys -dst Sc:\fido\msgbase\squish\enetsys -deftz -0500 -sort -dedup');
     WriteLn('  ', ParamStr(0), ' -src Mc:\fido\msgbase\msg\netmail -dst Sc:\fido\msgbase\squish\netmail -sort');
     Halt(1);
