@@ -214,15 +214,16 @@ begin
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
         if SortBase then
         begin
+          I := DefTZUTCI;
           if SourceBase^.GetKludge(#1'TZUTC', S) then
-            S := ExtractWord(2, S, [' '])
-          else
-            S := DefTZUTC;
-          Val(S, I, Err);
-          if Err <> 0 then
           begin
-            WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
-            I := DefTZUTCI;
+            S := ExtractWord(2, S, [' ']);
+            Val(S, I, Err);
+            if Err <> 0 then
+            begin
+              WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
+              I := DefTZUTCI;
+            end;
           end;
           MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
