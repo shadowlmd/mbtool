@@ -2,6 +2,7 @@
 
 uses
   Objects,
+  Strings,
   skMHL,
   skOpen,
   skCommon;
@@ -32,7 +33,6 @@ type
 
 var
   SourceBase, DestBase: PMessageBase;
-  SourceTextStream, DestTextStream: PMessageBaseStream;
   MsgDT: TMessageBaseDateTime;
   SourceBaseID, DestBaseID, SourceBasePath, DestBasePath, SourceFormat, DestFormat, S: String;
   SourceTMBF, DestTMBF: TMessageBaseFormat;
@@ -40,6 +40,7 @@ var
   IndexRecCollection: TIndexRecCollection;
   DefTZUTCI, I, Err: Longint;
   T: Int64;
+  Buf, P: PChar;
 
 function NewPString(const S: String): PString;
 begin
@@ -73,8 +74,8 @@ begin
   if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
   if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
   if Rec1.Subject^ <> Rec2.Subject^ then Compare := -1 else
-  if AddressCompare(Rec1.FromAddress, Rec2.FromAddress) <> 0 then Compare := -1 else
-  if AddressCompare(Rec1.ToAddress, Rec2.ToAddress) <> 0 then Compare := -1 else
+  //if AddressCompare(Rec1.FromAddress, Rec2.FromAddress) <> 0 then Compare := -1 else
+  //if AddressCompare(Rec1.ToAddress, Rec2.ToAddress) <> 0 then Compare := -1 else
     Compare := 0;
 end;
 
@@ -170,6 +171,8 @@ begin
 
   skCommon.MaxLineSize := 16384;
   skCommon.MaxMessageSize := 524288;
+
+  GetMem(Buf, skCommon.MaxLineSize);
 
   if ExistMessageBase(DestBaseID) then
   begin
@@ -284,12 +287,20 @@ begin
     end;
 
     { copy message text first because other manipulations may set additional kludges }
-    SourceTextStream := SourceBase^.GetMessageTextStream;
-    DestTextStream := DestBase^.GetMessageTextStream;
-    SourceTextStream^.Seek(0);
-    DestTextStream^.Seek(0);
-    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
-    DestTextStream^.Truncate;
+    SourceBase^.SetTextPos(0);
+    while not SourceBase^.EndOfMessage do
+    begin
+      SourceBase^.GetStringPChar(Buf, skCommon.MaxLineSize);
+      P := StrPos(Buf, #1'PATH');
+      if (P <> nil) and (P <> Buf) then
+      begin
+        P[0] := #0;
+        DestBase^.PutStringPChar(Buf);
+        //P[0] := #1;
+        //DestBase^.PutStringPChar(P);
+      end else
+        DestBase^.PutStringPChar(Buf);
+    end;
 
     if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
       WriteLn('[WARN] Message #', IndexRec^.MsgNum, ' -> #', DestBase^.Current, ' text size changed!');
@@ -344,4 +355,6 @@ begin
   CloseMessageBase(SourceBase);
 
   IndexRecCollection.Done;
+
+  FreeMem(Buf, skCommon.MaxLineSize);
 end.
