@@ -22,7 +22,7 @@ type
   PIndexRec = ^TIndexRec;
   TIndexRec = record
     Index, MsgNum: Longint;
-    WrittenDateUTC: TMessageBaseDateTime;
+    ArrivedDateUTC, WrittenDateUTC: TMessageBaseDateTime;
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
@@ -58,12 +58,21 @@ function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
 var
   I: Integer;
   Rec1, Rec2: TIndexRec;
+  DT1, DT2: TMessageBaseDateTime;
 begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
   if SortBase then
   begin
-    I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
+    //if MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec1.ArrivedDateUTC) = -1 then
+      DT1 := Rec1.WrittenDateUTC
+    //else
+    //  DT1 := Rec1.ArrivedDateUTC;
+    //if MessageBaseDateTimeCompare(Rec2.WrittenDateUTC, Rec2.ArrivedDateUTC) = -1 then
+      DT2 := Rec2.WrittenDateUTC
+    //else
+    //  DT2 := Rec2.ArrivedDateUTC;
+    I := MessageBaseDateTimeCompare(DT1, DT2);
     if I <> 0 then
     begin
       Compare := I;
@@ -215,23 +224,24 @@ begin
         Subject := NewPString(SourceBase^.GetSubject);
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
-        if SortBase then
+        SourceBase^.GetArrivedDateTime(ArrivedDateUTC);
+        I := DefTZUTCI;
+        if SourceBase^.GetKludge(#1'TZUTC', S) then
         begin
-          I := DefTZUTCI;
-          if SourceBase^.GetKludge(#1'TZUTC', S) then
+          S := ExtractWord(2, S, [' ']);
+          Val(S, I, Err);
+          if Err <> 0 then
           begin
-            S := ExtractWord(2, S, [' ']);
-            Val(S, I, Err);
-            if Err <> 0 then
-            begin
-              WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
-              I := DefTZUTCI;
-            end;
+            WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
+            I := DefTZUTCI;
           end;
-          MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
-          T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
-          UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
         end;
+        MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
+        T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
+        UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
+        MessageBaseDateTimeToUnixDateTime(ArrivedDateUTC, T);
+        T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
+        UnixDateTimeToMessageBaseDateTime(T, ArrivedDateUTC);
         if SourceBase^.GetKludge(#1'MSGID', S) then
           S := Copy(S, 9, 255)
         else
@@ -333,10 +343,11 @@ begin
     DestBase^.SetAttribute(maARq, SourceBase^.GetAttribute(maARq));
     DestBase^.SetAttribute(maURq, SourceBase^.GetAttribute(maURq));
     DestBase^.SetAttribute(maScanned, SourceBase^.GetAttribute(maScanned) or (SourceBase^.GetAttribute(maLocal) and SourceBase^.GetAttribute(maSent)));
-    SourceBase^.GetWrittenDateTime(MsgDT);
-    DestBase^.SetWrittenDateTime(MsgDT);
     SourceBase^.GetArrivedDateTime(MsgDT);
     DestBase^.SetArrivedDateTime(MsgDT);
+    //if MessageBaseDateTimeCompare(IndexRec^.WrittenDateUTC, IndexRec^.ArrivedDateUTC) = -1 then
+      SourceBase^.GetWrittenDateTime(MsgDT);
+    DestBase^.SetWrittenDateTime(MsgDT);
     DestBase^.SetRead(SourceBase^.GetRead);
 
     { overwrite generated MSGID kludge with the original one }
