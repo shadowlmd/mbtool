@@ -1,0 +1,46 @@
+name: Windows build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      - name: Install FreePascal
+        uses: fpc-ru/setup-fpc@v2
+        with:
+          version: stable
+
+      - name: Clone skMHL-avs dependency
+        run: |
+          git clone https://github.com/shadowlmd/skMHL-avs.git
+
+      - name: Build mbtool (Release)
+        shell: cmd
+        run: |
+          mkdir release
+          fpc -B -dRELEASE ^
+            -Flrelease ^
+            -FUrelease ^
+            -FuskMHL-avs\sources ^
+            -FiskMHL-avs\sources ^
+            -g -gl ^
+            mbtool.pas
+
+      - name: Create ZIP archive
+        shell: powershell
+        run: |
+          Compress-Archive -Path release\* -DestinationPath mbtool-windows.zip
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mbtool-windows
+          path: mbtool-windows.zip
