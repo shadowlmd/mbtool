@@ -50,7 +50,7 @@ jobs:
         run: |
           dir
           dir release
-          Compress-Archive -Path release\mbtool.exe -DestinationPath mbtool-windows.zip
+          Compress-Archive -Path mbtool.exe -DestinationPath mbtool-windows.zip
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
