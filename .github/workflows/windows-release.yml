@@ -74,3 +74,5 @@ jobs:
           asset_path: mbtool-windows.zip
           asset_name: mbtool-windows.zip
           asset_content_type: application/zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}          
