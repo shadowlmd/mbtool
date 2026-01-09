@@ -49,10 +49,12 @@ jobs:
         run: |
           Compress-Archive -Path mbtool.exe -DestinationPath mbtool-windows.zip
 
-      - name: GitHub Release
-        uses: johnwbyrd/update-release@v1
+      - name: GitHub release
+        uses: ncipollo/release-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          release: latest
           tag: latest
+          name: latest
+          allowUpdates: true
           files: mbtool-windows.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
