@@ -32,13 +32,6 @@ jobs:
               Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT', 'INSTALLDIR=C:\FPC\3.2.2' -Wait
           }
 
-      - name: Download and install FreePascal
-        shell: powershell
-        run: |
-          $url = "http://downloads.freepascal.org/fpc/dist/3.2.2/i386-win32/fpc-3.2.2.i386-win32.exe"
-          Invoke-WebRequest -Uri $url -OutFile fpc-installer.exe
-          Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT' -Wait          
-
       - name: Build mbtool (Release)
         shell: cmd
         run: |
