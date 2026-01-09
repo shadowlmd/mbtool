@@ -44,7 +44,7 @@ jobs:
             -g -gl ^
             mbtool.pas
 
-      - name: Create ZIP archive
+      - name: Create archive
         shell: powershell
         run: |
           Compress-Archive -Path mbtool.exe -DestinationPath mbtool-windows.zip
@@ -55,6 +55,7 @@ jobs:
           tag: latest
           name: latest
           allowUpdates: true
-          files: mbtool-windows.zip
+          artifacts: mbtool-windows.zip
+          replacesArtifacts: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
