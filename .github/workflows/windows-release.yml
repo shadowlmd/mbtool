@@ -49,29 +49,10 @@ jobs:
         run: |
           Compress-Archive -Path mbtool.exe -DestinationPath mbtool-windows.zip
 
-      - name: Upload ZIP artifact
-        uses: actions/upload-artifact@v4
+      - name: GitHub Release
+        uses: johnwbyrd/update-release@v1
         with:
-          name: mbtool-windows
-          path: mbtool-windows.zip
-
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        with:
-          tag_name: latest
-          release_name: latest
-          draft: false
-          prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload ZIP to Release
-        uses: actions/upload-release-asset@v1
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: mbtool-windows.zip
-          asset_name: mbtool-windows.zip
-          asset_content_type: application/zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}          
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: latest
+          tag: latest
+          files: mbtool-windows.zip
