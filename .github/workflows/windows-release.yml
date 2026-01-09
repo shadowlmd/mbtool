@@ -13,14 +13,16 @@ jobs:
       - name: Checkout main repository
         uses: actions/checkout@v4
 
-      - name: Install FreePascal
-        uses: fpc-ru/setup-fpc@v2
-        with:
-          version: stable
-
       - name: Clone skMHL-avs dependency
         run: |
           git clone https://github.com/shadowlmd/skMHL-avs.git
+
+      - name: Download and install FreePascal
+        shell: powershell
+        run: |
+          $url = "https://downloads.sourceforge.net/project/freepascal/Source/3.2.2/i386-win32/fpc-3.2.2.i386-win32.exe"
+          Invoke-WebRequest -Uri $url -OutFile fpc-installer.exe
+          Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT' -Wait          
 
       - name: Build mbtool (Release)
         shell: cmd
@@ -37,7 +39,7 @@ jobs:
       - name: Create ZIP archive
         shell: powershell
         run: |
-          Compress-Archive -Path release\* -DestinationPath mbtool-windows.zip
+          Compress-Archive -Path release\mbtool.exe -DestinationPath mbtool-windows.zip
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
