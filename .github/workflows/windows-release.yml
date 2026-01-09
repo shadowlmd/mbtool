@@ -17,6 +17,21 @@ jobs:
         run: |
           git clone https://github.com/shadowlmd/skMHL-avs.git
 
+      - name: Cache FPC
+        uses: actions/cache@v3
+        with:
+          path: C:\FPC\3.2.2
+          key: fpc-3.2.2
+
+      - name: Download and install FreePascal if not cached
+        shell: powershell
+        run: |
+          if (!(Test-Path "C:\FPC\3.2.2\fpc.exe")) {
+              $url = "http://downloads.freepascal.org/fpc/dist/3.2.2/i386-win32/fpc-3.2.2.i386-win32.exe"
+              Invoke-WebRequest -Uri $url -OutFile fpc-installer.exe
+              Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT', 'INSTALLDIR=C:\FPC\3.2.2' -Wait
+          }
+
       - name: Download and install FreePascal
         shell: powershell
         run: |
@@ -35,10 +50,13 @@ jobs:
             -FiskMHL-avs\sources ^
             -g -gl ^
             mbtool.pas
+          dir release
 
       - name: Create ZIP archive
         shell: powershell
         run: |
+          dir
+          dir release
           Compress-Archive -Path release\mbtool.exe -DestinationPath mbtool-windows.zip
 
       - name: Upload ZIP artifact
