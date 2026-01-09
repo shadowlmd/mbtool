@@ -52,7 +52,7 @@ jobs:
       - name: GitHub release
         uses: ncipollo/release-action@v1
         with:
-          tag: latest
+          commit: ${{ github.sha }}
           name: latest
           allowUpdates: true
           artifacts: mbtool-windows.zip
