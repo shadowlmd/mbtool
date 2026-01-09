@@ -28,7 +28,7 @@ jobs:
         shell: cmd
         run: |
           mkdir release
-          fpc -B -dRELEASE ^
+          C:\FPC\3.2.2\bin\i386-win32\fpc.exe -B -dRELEASE ^
             -Flrelease ^
             -FUrelease ^
             -FuskMHL-avs\sources ^
