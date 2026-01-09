@@ -17,22 +17,22 @@ jobs:
         run: |
           git clone https://github.com/shadowlmd/skMHL-avs.git
 
-      - name: Cache FPC
+      - name: Cache FreePascal
         uses: actions/cache@v3
         with:
           path: C:\FPC\3.2.2
           key: fpc-3.2.2
 
-      - name: Download and install FreePascal if not cached
+      - name: Download and install FreePascal
         shell: powershell
         run: |
-          if (!(Test-Path "C:\FPC\3.2.2\fpc.exe")) {
+          if (!(Test-Path "C:\FPC\3.2.2\bin\i386-win32\fpc.exe")) {
               $url = "http://downloads.freepascal.org/fpc/dist/3.2.2/i386-win32/fpc-3.2.2.i386-win32.exe"
               Invoke-WebRequest -Uri $url -OutFile fpc-installer.exe
-              Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT', 'INSTALLDIR=C:\FPC\3.2.2' -Wait
+              Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT' -Wait
           }
 
-      - name: Build mbtool (Release)
+      - name: Build mbtool.exe
         shell: cmd
         run: |
           mkdir release
@@ -57,7 +57,6 @@ jobs:
           path: mbtool-windows.zip
 
       - name: Create GitHub Release
-        id: create_release
         uses: actions/create-release@v1
         with:
           tag_name: mbtool-${{ github.sha }}
