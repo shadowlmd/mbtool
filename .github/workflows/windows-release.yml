@@ -43,7 +43,6 @@ jobs:
             -FiskMHL-avs\sources ^
             -g -gl ^
             mbtool.pas
-          dir release
 
       - name: Create ZIP archive
         shell: powershell
