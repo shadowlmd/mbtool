@@ -14,7 +14,7 @@ mbtool.exe -src <SourceBase> -dst <DestBase> [-deftz <DefTZUTC>] [-sort] [-dedup
 ### convert JAM base to Squish base and skip dupe messages
 mbtool.exe -src Jc:\fido\msgbase\jam\ruftndev -dst Sc:\fido\msgbase\squish\ruftndev -dedup
 
-### convert JAM base to Squish base and sort it, using UTC-0300 for messages without TZUTC kludge
+### convert JAM base to Squish base and sort it, using UTC+0300 for messages without TZUTC kludge
 mbtool.exe -src Jc:\fido\msgbase\jam\r50sysop -dst Sc:\fido\msgbase\squish\r50sysop -deftz 0300 -sort
 
 ### convert JAM base to Squish base and sort it, using UTC-0500 for messages without TZUTC kludge, and remove dupe messages
