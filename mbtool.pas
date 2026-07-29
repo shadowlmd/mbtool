@@ -107,35 +107,36 @@ begin
 end;
 
 procedure ReplySortIndexRecCollection;
+procedure SortIndexRecCollection;
 var
-  I, ParentIdx: Longint;
-  IndexRec, ParentItem: PIndexRec;
-
-  function MatchParent(Item: PIndexRec): Boolean;
-  begin
-    Result := Assigned(Item^.MSGID) and (Item^.MSGID^ = IndexRec^.ReplyMSGID^) and (AddressCompare(Item^.FromAddress, IndexRec^.ReplyAddress) = 0);
-  end;
-
+  I, J, ParentIdx: Longint;
+  IndexRec, Rec2: PIndexRec;
 begin
   I := 0;
   while I < IndexRecCollection.Count do
   begin
-    IndexRec := IndexRecCollection.At(I);
+    IndexRec := PIndexRec(IndexRecCollection.At(I));
     if (not IndexRec^.HasTZUTC) and (Length(IndexRec^.ReplyMSGID^) > 0) and (not IsCleanAddress(IndexRec^.ReplyAddress)) then
     begin
-      ParentItem := IndexRecCollection.FirstThat(@MatchParent);
-      if ParentItem <> nil then
+      ParentIdx := -1;
+      for J := 0 to IndexRecCollection.Count - 1 do
       begin
-        ParentIdx := IndexRecCollection.IndexOf(ParentItem);
-        if ParentIdx <> -1 then
+        Rec2 := PIndexRec(IndexRecCollection.At(J));
+        if Assigned(Rec2^.MSGID) and (Rec2^.MSGID^ = IndexRec^.ReplyMSGID^) and (AddressCompare(Rec2^.FromAddress, IndexRec^.ReplyAddress) = 0) then
         begin
-          if I < ParentIdx then
-          begin
-            IndexRecCollection.AtDelete(I);
-            IndexRecCollection.AtInsert(ParentIdx, IndexRec);
-            WriteLn('[INFO] Message #', IndexRec^.MsgNum, ' sorted after #', PIndexRec(IndexRecCollection.At(ParentIdx - 1))^.MsgNum, ' (missing TZUTC, moved after parent MSGID: ', IndexRec^.ReplyMSGID^, ')');
-            continue;
-          end;
+          ParentIdx := J;
+          break;
+        end;
+      end;
+
+      if ParentIdx <> -1 then
+      begin
+        if I < ParentIdx then
+        begin
+          IndexRecCollection.AtDelete(I);
+          IndexRecCollection.AtInsert(ParentIdx, IndexRec);
+          WriteLn('[INFO] Message #', IndexRec^.MsgNum, ' sorted after #', PIndexRec(IndexRecCollection.At(ParentIdx - 1))^.MsgNum, ' (missing TZUTC, moved after parent MSGID: ', IndexRec^.ReplyMSGID^, ')');
+          continue;
         end;
       end;
     end;
