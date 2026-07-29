@@ -25,6 +25,9 @@ type
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
+    ReplyMSGID: PString;
+    ReplyAddress: TAddress;
+    HasTZUTC: Boolean;
     FromName: PString;
     ToName: PString;
     Subject: PString;
@@ -60,8 +63,29 @@ var
 begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
+
   if SortBase then
   begin
+    if (not Rec1.HasTZUTC) or (not Rec2.HasTZUTC) then
+    begin
+      if (Length(Rec1.ReplyMSGID^) > 0) and Assigned(Rec2.MSGID) and (Rec1.ReplyMSGID^ = Rec2.MSGID^) then
+      begin
+        if IsCleanAddress(Rec1.ReplyAddress) or (AddressCompare(Rec1.ReplyAddress, Rec2.FromAddress) = 0) then
+        begin
+          Compare := 1;
+          exit;
+        end;
+      end;
+      if (Length(Rec2.ReplyMSGID^) > 0) and Assigned(Rec1.MSGID) and (Rec2.ReplyMSGID^ = Rec1.MSGID^) then
+      begin
+        if IsCleanAddress(Rec2.ReplyAddress) or (AddressCompare(Rec2.ReplyAddress, Rec1.FromAddress) = 0) then
+        begin
+          Compare := -1;
+          exit;
+        end;
+      end;
+    end;
+
     I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
     if I <> 0 then
     begin
@@ -69,6 +93,7 @@ begin
       exit;
     end;
   end;
+
   if Rec1.MSGID^ <> Rec2.MSGID^ then Compare := -1 else
   if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
   if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
@@ -96,6 +121,7 @@ begin
     DisposePString(ToName);
     DisposePString(Subject);
     DisposePString(MSGID);
+    DisposePString(ReplyMSGID);
   end;
   Dispose(PIndexRec(Item));
 end;
@@ -212,6 +238,7 @@ begin
         Subject := NewPString(SourceBase^.GetSubject);
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
+        HasTZUTC := false;
         if SortBase then
         begin
           I := DefTZUTCI;
@@ -223,7 +250,8 @@ begin
             begin
               WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
               I := DefTZUTCI;
-            end;
+            end else
+              HasTZUTC := true;
           end;
           MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
@@ -234,6 +262,16 @@ begin
         else
           S := '';
         MSGID := NewPString(S);
+        if SourceBase^.GetKludge(#1'REPLY', S) then
+        begin
+          if not StrToAddress(ExtractWord(2, S, [' ']), ReplyAddress) then
+            ClearAddress(ReplyAddress);
+          ReplyMSGID := NewPString(ExtractWord(3, S, [' ']));
+        end else
+        begin
+          ClearAddress(ReplyAddress);
+          ReplyMSGID := NewPString('');
+        end;
       end;
       IndexRecCollection.Insert(IndexRec);
       SourceBase^.CloseMessage;
