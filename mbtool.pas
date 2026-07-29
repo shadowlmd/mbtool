@@ -121,7 +121,7 @@ begin
       for J := I + 1 to IndexRecCollection.Count - 1 do
       begin
         Rec2 := IndexRecCollection.At(J);
-        if (Rec2^.MSGID^ = Rec1^.REPLY^) and ((not Rec1^.HasTZUTC) or (not Rec2^.HasTZUTC)) then
+        if (Rec2^.MSGID^ = Rec1^.REPLY^) and not (Rec1^.HasTZUTC and Rec2^.HasTZUTC) then
         begin
           ParentIdx := J;
           break;
