@@ -135,7 +135,7 @@ begin
       begin
         IndexRecCollection.AtDelete(I);
         IndexRecCollection.AtInsert(ParentIdx, Rec1);
-        WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' because either it or the original message was missing TZUTC kludge and it is a reply to that message.');
+        WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' (reply, missing TZUTC)');
         continue;
       end;
     end;
