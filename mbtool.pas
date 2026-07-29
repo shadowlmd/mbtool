@@ -121,13 +121,10 @@ begin
       for J := I + 1 to IndexRecCollection.Count - 1 do
       begin
         Rec2 := IndexRecCollection.At(J);
-        if (Rec2^.MSGID^ = Rec1^.REPLY^) then
+        if (Rec2^.MSGID^ = Rec1^.REPLY^) and ((not Rec1^.HasTZUTC) or (not Rec2^.HasTZUTC)) then
         begin
-          if (not Rec1^.HasTZUTC) or (not Rec2^.HasTZUTC) then
-          begin
-            ParentIdx := J;
-            break;
-          end;
+          ParentIdx := J;
+          break;
         end;
       end;
       if ParentIdx <> -1 then
@@ -285,8 +282,7 @@ begin
           else
             S := '';
           REPLY := NewPString(S);
-        end else
-          REPLY := NewPString('');
+        end;
       end;
       IndexRecCollection.Insert(IndexRec);
       SourceBase^.CloseMessage;
