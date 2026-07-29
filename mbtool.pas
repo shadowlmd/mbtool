@@ -101,7 +101,8 @@ begin
     DisposePString(ToName);
     DisposePString(Subject);
     DisposePString(MSGID);
-    DisposePString(ReplyMSGID);
+    if SortBase then
+      DisposePString(ReplyMSGID);
   end;
   Dispose(PIndexRec(Item));
 end;
@@ -115,19 +116,19 @@ begin
   while I < IndexRecCollection.Count do
   begin
     Rec1 := IndexRecCollection.At(I);
-    if (not Rec1^.HasTZUTC) and (Length(Rec1^.ReplyMSGID^) > 0) and (not IsCleanAddress(Rec1^.ReplyAddress)) then
+    if (not Rec1^.HasTZUTC) and (Rec1^.ReplyMSGID^ <> '') and (not IsCleanAddress(Rec1^.ReplyAddress)) then
     begin
       ParentIdx := -1;
-      for J := 0 to IndexRecCollection.Count - 1 do
+      for J := I + 1 to IndexRecCollection.Count - 1 do
       begin
         Rec2 := IndexRecCollection.At(J);
-        if Assigned(Rec2^.MSGID) and (Rec2^.MSGID^ = Rec1^.ReplyMSGID^) and (AddressCompare(Rec2^.FromAddress, Rec1^.ReplyAddress) = 0) then
+        if (Rec2^.MSGID^ = Rec1^.ReplyMSGID^) and (AddressCompare(Rec2^.FromAddress, Rec1^.ReplyAddress) = 0) then
         begin
           ParentIdx := J;
           break;
         end;
       end;
-      if I < ParentIdx then
+      if ParentIdx <> -1 then
       begin
         IndexRecCollection.AtDelete(I);
         IndexRecCollection.AtInsert(ParentIdx, Rec1);
@@ -251,10 +252,17 @@ begin
         Subject := NewPString(SourceBase^.GetSubject);
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
-        HasTZUTC := false;
+
+        if SourceBase^.GetKludge(#1'MSGID', S) then
+          S := Copy(S, 9, 255)
+        else
+          S := '';
+        MSGID := NewPString(S);
+
         if SortBase then
         begin
           I := DefTZUTCI;
+          HasTZUTC := false;
           if SourceBase^.GetKludge(#1'TZUTC', S) then
           begin
             S := ExtractWord(2, S, [' ']);
@@ -269,21 +277,17 @@ begin
           MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
           UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
-        end;
-        if SourceBase^.GetKludge(#1'MSGID', S) then
-          S := Copy(S, 9, 255)
-        else
-          S := '';
-        MSGID := NewPString(S);
-        if SourceBase^.GetKludge(#1'REPLY', S) then
-        begin
-          if not StrToAddress(ExtractWord(2, S, [' ']), ReplyAddress) then
+
+          if SourceBase^.GetKludge(#1'REPLY', S) then
+          begin
+            if not StrToAddress(ExtractWord(2, S, [' ']), ReplyAddress) then
+              ClearAddress(ReplyAddress);
+            ReplyMSGID := NewPString(ExtractWord(3, S, [' ']));
+          end else
+          begin
             ClearAddress(ReplyAddress);
-          ReplyMSGID := NewPString(ExtractWord(3, S, [' ']));
-        end else
-        begin
-          ClearAddress(ReplyAddress);
-          ReplyMSGID := NewPString('');
+            ReplyMSGID := NewPString('');
+          end;
         end;
       end;
       IndexRecCollection.Insert(IndexRec);
@@ -384,7 +388,7 @@ begin
 
     { overwrite generated MSGID kludge with the original one }
     { or delete it if original message didn't have it }
-    if Length(IndexRec^.MSGID^) > 0 then
+    if IndexRec^.MSGID^ <> '' then
       DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^)
     else
       DestBase^.DeleteKludge(#1'MSGID:');
