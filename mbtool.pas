@@ -25,8 +25,7 @@ type
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
-    ReplyMSGID: PString;
-    ReplyAddress: TAddress;
+    REPLY: PString;
     HasTZUTC: Boolean;
     FromName: PString;
     ToName: PString;
@@ -102,7 +101,7 @@ begin
     DisposePString(Subject);
     DisposePString(MSGID);
     if SortBase then
-      DisposePString(ReplyMSGID);
+      DisposePString(REPLY);
   end;
   Dispose(PIndexRec(Item));
 end;
@@ -116,13 +115,13 @@ begin
   while I < IndexRecCollection.Count do
   begin
     Rec1 := IndexRecCollection.At(I);
-    if (Rec1^.ReplyMSGID^ <> '') and (not IsCleanAddress(Rec1^.ReplyAddress)) then
+    if (Rec1^.REPLY^ <> '') then
     begin
       ParentIdx := -1;
       for J := I + 1 to IndexRecCollection.Count - 1 do
       begin
         Rec2 := IndexRecCollection.At(J);
-        if (Rec2^.MSGID^ = Rec1^.ReplyMSGID^) and (AddressCompare(Rec2^.FromAddress, Rec1^.ReplyAddress) = 0) then
+        if (Rec2^.MSGID^ = Rec1^.REPLY^) then
         begin
           if (not Rec1^.HasTZUTC) or (not Rec2^.HasTZUTC) then
           begin
@@ -282,16 +281,12 @@ begin
           UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
 
           if SourceBase^.GetKludge(#1'REPLY', S) then
-          begin
-            if not StrToAddress(ExtractWord(2, S, [' ']), ReplyAddress) then
-              ClearAddress(ReplyAddress);
-            ReplyMSGID := NewPString(ExtractWord(3, S, [' ']));
-          end else
-          begin
-            ClearAddress(ReplyAddress);
-            ReplyMSGID := NewPString('');
-          end;
-        end;
+            S := Copy(S, 9, 255)
+          else
+            S := '';
+          REPLY := NewPString(S);
+        end else
+          REPLY := NewPString('');
       end;
       IndexRecCollection.Insert(IndexRec);
       SourceBase^.CloseMessage;
