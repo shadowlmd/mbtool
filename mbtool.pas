@@ -128,6 +128,45 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
+procedure SortIndexRecCollection;
+var
+  I, ParentIdx: Longint;
+  IndexRec, ParentItem: PIndexRec;
+
+  function MatchParent(Item: PIndexRec): Boolean;
+  begin
+    Result := Assigned(Item^.MSGID) and (Item^.MSGID^ = IndexRec^.ReplyMSGID^) and (AddressCompare(Item^.FromAddress, IndexRec^.ReplyAddress) = 0);
+  end;
+
+begin
+  I := 0;
+  while I < IndexRecCollection.Count do
+  begin
+    IndexRec := IndexRecCollection.At(I);
+    if (not IndexRec^.HasTZUTC) and (Length(IndexRec^.ReplyMSGID^) > 0) and (not IsCleanAddress(IndexRec^.ReplyAddress)) then
+    begin
+      ParentItem := IndexRecCollection.FirstThat(@MatchParent);
+      if ParentItem <> nil then
+      begin
+        ParentIdx := IndexRecCollection.IndexOf(ParentItem);
+        if ParentIdx <> -1 then
+        begin
+          if I <= ParentIdx then
+          begin
+            IndexRecCollection.AtDelete(I);
+            if I < ParentIdx then
+              Dec(ParentIdx);
+            IndexRecCollection.AtInsert(ParentIdx + 1, IndexRec);
+            WriteLn('[INFO] Message #', IndexRec^.MsgNum, ' sorted after #', PIndexRec(IndexRecCollection.At(ParentIdx))^.MsgNum, ' (missing TZUTC, moved after parent MSGID: ', IndexRec^.ReplyMSGID^, ')');
+            continue;
+          end;
+        end;
+      end;
+    end;
+    Inc(I);
+  end;
+end;
+
 procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var Format, Path: String);
 begin
   SplitID(S, TMBF, Path);
@@ -287,6 +326,9 @@ begin
     end;
     SourceBase^.SeekNext;
   end;
+
+  if SortBase then
+    SortIndexRecCollection;
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
