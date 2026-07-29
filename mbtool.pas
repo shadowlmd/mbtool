@@ -66,28 +66,6 @@ begin
 
   if SortBase then
   begin
-    if (not Rec1.HasTZUTC) or (not Rec2.HasTZUTC) then
-    begin
-      if (Length(Rec1.ReplyMSGID^) > 0) and Assigned(Rec2.MSGID) and (Rec1.ReplyMSGID^ = Rec2.MSGID^) then
-      begin
-        if IsCleanAddress(Rec1.ReplyAddress) or (AddressCompare(Rec1.ReplyAddress, Rec2.FromAddress) = 0) then
-        begin
-          WriteLn('[INFO] Message #', Rec1.MsgNum, ' sorted after #', Rec2.MsgNum, ' (missing TZUTC, reply to MSGID: ', Rec1.ReplyMSGID^, ')');
-          Compare := 1;
-          exit;
-        end;
-      end;
-      if (Length(Rec2.ReplyMSGID^) > 0) and Assigned(Rec1.MSGID) and (Rec2.ReplyMSGID^ = Rec1.MSGID^) then
-      begin
-        if IsCleanAddress(Rec2.ReplyAddress) or (AddressCompare(Rec2.ReplyAddress, Rec1.FromAddress) = 0) then
-        begin
-          WriteLn('[INFO] Message #', Rec1.MsgNum, ' sorted before #', Rec2.MsgNum, ' (missing TZUTC, replied to by message #', Rec2.MsgNum, ' with MSGID: ', Rec2.ReplyMSGID^, ')');
-          Compare := -1;
-          exit;
-        end;
-      end;
-    end;
-
     I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
     if I <> 0 then
     begin
