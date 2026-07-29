@@ -134,9 +134,7 @@ begin
           IndexRecCollection.AtDelete(ParentIdx);
           IndexRecCollection.AtInsert(I, Rec2);
           WriteLn('[INFO] Message #', Rec2^.MsgNum, ' sorted before #', Rec1^.MsgNum, ' (parent, missing TZUTC)');
-          continue;
-        end
-        else
+        end else
         begin
           IndexRecCollection.AtDelete(I);
           IndexRecCollection.AtInsert(ParentIdx, Rec1);
