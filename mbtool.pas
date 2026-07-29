@@ -72,6 +72,7 @@ begin
       begin
         if IsCleanAddress(Rec1.ReplyAddress) or (AddressCompare(Rec1.ReplyAddress, Rec2.FromAddress) = 0) then
         begin
+          WriteLn('[INFO] Message #', Rec1.MsgNum, ' sorted after #', Rec2.MsgNum, ' (missing TZUTC, reply to MSGID: ', Rec1.ReplyMSGID^, ')');
           Compare := 1;
           exit;
         end;
@@ -80,6 +81,7 @@ begin
       begin
         if IsCleanAddress(Rec2.ReplyAddress) or (AddressCompare(Rec2.ReplyAddress, Rec1.FromAddress) = 0) then
         begin
+          WriteLn('[INFO] Message #', Rec1.MsgNum, ' sorted before #', Rec2.MsgNum, ' (missing TZUTC, replied to by message #', Rec2.MsgNum, ' with MSGID: ', Rec2.ReplyMSGID^, ')');
           Compare := -1;
           exit;
         end;
