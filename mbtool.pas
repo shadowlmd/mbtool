@@ -116,7 +116,7 @@ begin
   while I < IndexRecCollection.Count do
   begin
     Rec1 := IndexRecCollection.At(I);
-    if (not Rec1^.HasTZUTC) and (Rec1^.ReplyMSGID^ <> '') and (not IsCleanAddress(Rec1^.ReplyAddress)) then
+    if (Rec1^.ReplyMSGID^ <> '') and (not IsCleanAddress(Rec1^.ReplyAddress)) then
     begin
       ParentIdx := -1;
       for J := I + 1 to IndexRecCollection.Count - 1 do
@@ -124,15 +124,18 @@ begin
         Rec2 := IndexRecCollection.At(J);
         if (Rec2^.MSGID^ = Rec1^.ReplyMSGID^) and (AddressCompare(Rec2^.FromAddress, Rec1^.ReplyAddress) = 0) then
         begin
-          ParentIdx := J;
-          break;
+          if (not Rec1^.HasTZUTC) or (not Rec2^.HasTZUTC) then
+          begin
+            ParentIdx := J;
+            break;
+          end;
         end;
       end;
       if ParentIdx <> -1 then
       begin
         IndexRecCollection.AtDelete(I);
         IndexRecCollection.AtInsert(ParentIdx, Rec1);
-        WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' because it was missing TZUTC kludge and is a reply to that message.');
+        WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' because either it or the original message was missing TZUTC kludge and it is a reply to that message.');
         continue;
       end;
     end;
