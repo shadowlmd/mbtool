@@ -132,9 +132,8 @@ begin
           if I < ParentIdx then
           begin
             IndexRecCollection.AtDelete(I);
-            Dec(ParentIdx);
-            IndexRecCollection.AtInsert(ParentIdx + 1, IndexRec);
-            WriteLn('[INFO] Message #', IndexRec^.MsgNum, ' sorted after #', PIndexRec(IndexRecCollection.At(ParentIdx))^.MsgNum, ' (missing TZUTC, moved after parent MSGID: ', IndexRec^.ReplyMSGID^, ')');
+            IndexRecCollection.AtInsert(ParentIdx, IndexRec);
+            WriteLn('[INFO] Message #', IndexRec^.MsgNum, ' sorted after #', PIndexRec(IndexRecCollection.At(ParentIdx - 1))^.MsgNum, ' (missing TZUTC, moved after parent MSGID: ', IndexRec^.ReplyMSGID^, ')');
             continue;
           end;
         end;
