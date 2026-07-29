@@ -129,10 +129,20 @@ begin
       end;
       if ParentIdx <> -1 then
       begin
-        IndexRecCollection.AtDelete(I);
-        IndexRecCollection.AtInsert(ParentIdx, Rec1);
-        WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' (reply, missing TZUTC)');
-        continue;
+        if Rec1^.HasTZUTC then
+        begin
+          IndexRecCollection.AtDelete(ParentIdx);
+          IndexRecCollection.AtInsert(I, Rec2);
+          WriteLn('[INFO] Message #', Rec2^.MsgNum, ' sorted before #', Rec1^.MsgNum, ' (parent, missing TZUTC)');
+          continue;
+        end
+        else
+        begin
+          IndexRecCollection.AtDelete(I);
+          IndexRecCollection.AtInsert(ParentIdx, Rec1);
+          WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' (reply, missing TZUTC)');
+          continue;
+        end;
       end;
     end;
     Inc(I);
