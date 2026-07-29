@@ -106,7 +106,7 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
-procedure SortIndexRecCollection;
+procedure ReplySortIndexRecCollection;
 var
   I, ParentIdx: Longint;
   IndexRec, ParentItem: PIndexRec;
@@ -304,7 +304,7 @@ begin
   end;
 
   if SortBase then
-    SortIndexRecCollection;
+    ReplySortIndexRecCollection;
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
