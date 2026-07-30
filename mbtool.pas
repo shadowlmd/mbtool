@@ -133,13 +133,13 @@ begin
         begin
           IndexRecCollection.AtDelete(ParentIdx);
           IndexRecCollection.AtInsert(I, Rec2);
-          WriteLn('[INFO] Message #', Rec2^.MsgNum, ' sorted before #', Rec1^.MsgNum, ' (parent, missing TZUTC)');
+          WriteLn('[INFO] Message #', ParentIdx + 1, ' (MSGID: ', Rec2^.MSGID^, ') sorted before #', I + 1, ' (parent, missing TZUTC)');
           Inc(I);
         end else
         begin
           IndexRecCollection.AtDelete(I);
           IndexRecCollection.AtInsert(ParentIdx, Rec1);
-          WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' (reply, missing TZUTC)');
+          WriteLn('[INFO] Message #', I + 1, ' (MSGID: ', Rec1^.MSGID^, ') sorted after #', ParentIdx + 1, ' (reply, missing TZUTC)');
           continue;
         end;
       end;
