@@ -261,7 +261,7 @@ begin
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
 
-        if SourceBase^.GetKludge(#1'MSGID', S) then
+        if SourceBase^.GetKludge(#1'MSGID:', S) then
           S := Copy(S, 9, 255)
         else
           S := '';
@@ -271,7 +271,7 @@ begin
         begin
           I := DefTZUTCI;
           HasTZUTC := false;
-          if SourceBase^.GetKludge(#1'TZUTC', S) then
+          if SourceBase^.GetKludge(#1'TZUTC:', S) then
           begin
             S := ExtractWord(2, S, [' ']);
             Val(S, I, Err);
@@ -286,7 +286,7 @@ begin
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
           UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
 
-          if SourceBase^.GetKludge(#1'REPLY', S) then
+          if SourceBase^.GetKludge(#1'REPLY:', S) then
             S := Copy(S, 9, 255)
           else
             S := '';
