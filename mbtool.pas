@@ -25,6 +25,8 @@ type
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
+    REPLY: PString;
+    HasTZUTC: Boolean;
     FromName: PString;
     ToName: PString;
     Subject: PString;
@@ -60,6 +62,7 @@ var
 begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
+
   if SortBase then
   begin
     I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
@@ -69,6 +72,7 @@ begin
       exit;
     end;
   end;
+
   if Rec1.MSGID^ <> Rec2.MSGID^ then Compare := -1 else
   if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
   if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
@@ -96,8 +100,52 @@ begin
     DisposePString(ToName);
     DisposePString(Subject);
     DisposePString(MSGID);
+    if SortBase then
+      DisposePString(REPLY);
   end;
   Dispose(PIndexRec(Item));
+end;
+
+procedure ReplySortIndexRecCollection;
+var
+  I, J, ParentIdx: Longint;
+  Rec1, Rec2: PIndexRec;
+begin
+  I := 0;
+  while I < IndexRecCollection.Count do
+  begin
+    Rec1 := IndexRecCollection.At(I);
+    if (Rec1^.REPLY^ <> '') then
+    begin
+      ParentIdx := -1;
+      for J := I + 1 to IndexRecCollection.Count - 1 do
+      begin
+        Rec2 := IndexRecCollection.At(J);
+        if (Rec2^.MSGID^ = Rec1^.REPLY^) and not (Rec1^.HasTZUTC and Rec2^.HasTZUTC) then
+        begin
+          ParentIdx := J;
+          break;
+        end;
+      end;
+      if ParentIdx <> -1 then
+      begin
+        if Rec1^.HasTZUTC then
+        begin
+          IndexRecCollection.AtDelete(ParentIdx);
+          IndexRecCollection.AtInsert(I, Rec2);
+          WriteLn('[INFO] Message #', Rec2^.MsgNum, ' sorted before #', Rec1^.MsgNum, ' (parent, missing TZUTC)');
+          Inc(I);
+        end else
+        begin
+          IndexRecCollection.AtDelete(I);
+          IndexRecCollection.AtInsert(ParentIdx, Rec1);
+          WriteLn('[INFO] Message #', Rec1^.MsgNum, ' sorted after #', Rec2^.MsgNum, ' (reply, missing TZUTC)');
+          continue;
+        end;
+      end;
+    end;
+    Inc(I);
+  end;
 end;
 
 procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var Format, Path: String);
@@ -212,10 +260,18 @@ begin
         Subject := NewPString(SourceBase^.GetSubject);
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
         SourceBase^.GetWrittenDateTime(WrittenDateUTC);
+
+        if SourceBase^.GetKludge(#1'MSGID:', S) then
+          S := Copy(S, 9, 255)
+        else
+          S := '';
+        MSGID := NewPString(S);
+
         if SortBase then
         begin
           I := DefTZUTCI;
-          if SourceBase^.GetKludge(#1'TZUTC', S) then
+          HasTZUTC := false;
+          if SourceBase^.GetKludge(#1'TZUTC:', S) then
           begin
             S := ExtractWord(2, S, [' ']);
             Val(S, I, Err);
@@ -223,17 +279,19 @@ begin
             begin
               WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
               I := DefTZUTCI;
-            end;
+            end else
+              HasTZUTC := true;
           end;
           MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
           UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
+
+          if SourceBase^.GetKludge(#1'REPLY:', S) then
+            S := Copy(S, 9, 255)
+          else
+            S := '';
+          REPLY := NewPString(S);
         end;
-        if SourceBase^.GetKludge(#1'MSGID', S) then
-          S := Copy(S, 9, 255)
-        else
-          S := '';
-        MSGID := NewPString(S);
       end;
       IndexRecCollection.Insert(IndexRec);
       SourceBase^.CloseMessage;
@@ -247,6 +305,9 @@ begin
     end;
     SourceBase^.SeekNext;
   end;
+
+  if SortBase then
+    ReplySortIndexRecCollection;
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
@@ -330,7 +391,7 @@ begin
 
     { overwrite generated MSGID kludge with the original one }
     { or delete it if original message didn't have it }
-    if Length(IndexRec^.MSGID^) > 0 then
+    if IndexRec^.MSGID^ <> '' then
       DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^)
     else
       DestBase^.DeleteKludge(#1'MSGID:');
