@@ -16,6 +16,7 @@ type
     function Compare(Key1, Key2: Pointer): Longint; virtual;
     procedure Insert(Item: Pointer); virtual;
     procedure FreeItem(Item: Pointer); virtual;
+    procedure SortReplyChains; virtual;
   end;
 
   PIndexRec = ^TIndexRec;
@@ -106,21 +107,24 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
-procedure ReplySortIndexRecCollection;
+procedure TIndexRecCollection.SortReplyChains;
 var
   I, J, ParentIdx: Longint;
   Rec1, Rec2: PIndexRec;
 begin
+  if not SortBase then
+    exit;
+
   I := 0;
-  while I < IndexRecCollection.Count do
+  while I < Count do
   begin
-    Rec1 := IndexRecCollection.At(I);
+    Rec1 := At(I);
     if (Rec1^.REPLY^ <> '') then
     begin
       ParentIdx := -1;
-      for J := I + 1 to IndexRecCollection.Count - 1 do
+      for J := I + 1 to Count - 1 do
       begin
-        Rec2 := IndexRecCollection.At(J);
+        Rec2 := At(J);
         if (Rec2^.MSGID^ = Rec1^.REPLY^) and not (Rec1^.HasTZUTC and Rec2^.HasTZUTC) then
         begin
           ParentIdx := J;
@@ -131,14 +135,14 @@ begin
       begin
         if Rec1^.HasTZUTC then
         begin
-          IndexRecCollection.AtDelete(ParentIdx);
-          IndexRecCollection.AtInsert(I, Rec2);
+          AtDelete(ParentIdx);
+          AtInsert(I, Rec2);
           WriteLn('[INFO] Message #', ParentIdx + 1, ' (MSGID: ', Rec2^.MSGID^, ') sorted before #', I + 1, ' (parent, missing TZUTC)');
           Inc(I);
         end else
         begin
-          IndexRecCollection.AtDelete(I);
-          IndexRecCollection.AtInsert(ParentIdx, Rec1);
+          AtDelete(I);
+          AtInsert(ParentIdx, Rec1);
           WriteLn('[INFO] Message #', I + 1, ' (MSGID: ', Rec1^.MSGID^, ') sorted after #', ParentIdx + 1, ' (reply, missing TZUTC)');
           continue;
         end;
@@ -306,8 +310,7 @@ begin
     SourceBase^.SeekNext;
   end;
 
-  if SortBase then
-    ReplySortIndexRecCollection;
+  IndexRecCollection.SortReplyChains;
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
