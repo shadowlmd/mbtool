@@ -137,13 +137,13 @@ begin
         begin
           AtDelete(ParentIdx);
           AtInsert(I, Rec2);
-          WriteLn('[INFO] Message #', ParentIdx + 1, ' (MSGID: ', Rec2^.MSGID^, ') sorted before #', I + 1, ' (parent, missing TZUTC)');
+          // WriteLn('[INFO] Message #', ParentIdx + 1, ' (MSGID: ', Rec2^.MSGID^, ') sorted before #', I + 1, ' (parent, missing TZUTC)');
           Inc(I);
         end else
         begin
           AtDelete(I);
           AtInsert(ParentIdx, Rec1);
-          WriteLn('[INFO] Message #', I + 1, ' (MSGID: ', Rec1^.MSGID^, ') sorted after #', ParentIdx + 1, ' (reply, missing TZUTC)');
+          // WriteLn('[INFO] Message #', I + 1, ' (MSGID: ', Rec1^.MSGID^, ') sorted after #', ParentIdx + 1, ' (reply, missing TZUTC)');
           continue;
         end;
       end;
