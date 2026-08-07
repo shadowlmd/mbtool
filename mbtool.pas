@@ -171,14 +171,30 @@ end;
 begin
   if ParamCount < 4 then
   begin
-    WriteLn('Usage: ');
-    WriteLn('  ', ParamStr(0), ' -src <SourceBase> -dst <DestBase> [-deftz <DefTZUTC>] [-sort] [-dedup]');
+    WriteLn('Fido message base conversion and processing tool');
+    WriteLn;
+    WriteLn('Usage:');
+    WriteLn('  ', ParamStr(0), ' [options] -src <source> -dst <destination>');
+    WriteLn;
+    WriteLn('Options:');
+    WriteLn('  -src <spec>      Source message base specification');
+    WriteLn('  -dst <spec>      Destination message base specification');
+    WriteLn('  -deftz <offset>  Default UTC offset for messages without TZUTC kludge (e.g., 0300 or -0500)');
+    WriteLn('  -sort            Sort messages by date and reply chains');
+    WriteLn('  -dedup           Remove duplicate messages');
+    WriteLn;
+    WriteLn('Base Specification format:');
+    WriteLn('  <Letter><Path>');
+    WriteLn('  Where Letter is:');
+    WriteLn('    J - JAM');
+    WriteLn('    S - Squish');
+    WriteLn('    F, M, * - MSG / Opus');
     WriteLn;
     WriteLn('Examples:');
     WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\ruftndev -dst Sc:\fido\msgbase\squish\ruftndev -dedup');
     WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\r50sysop -dst Sc:\fido\msgbase\squish\r50sysop -deftz 0300 -sort');
     WriteLn('  ', ParamStr(0), ' -src Jc:\fido\msgbase\jam\enetsys -dst Sc:\fido\msgbase\squish\enetsys -deftz -0500 -sort -dedup');
-    WriteLn('  ', ParamStr(0), ' -src Mc:\fido\msgbase\msg\netmail -dst Sc:\fido\msgbase\squish\netmail -sort');
+    WriteLn('  ', ParamStr(0), ' -src Mc:\fido\msgbase\msg\netmail -dst Jc:\fido\msgbase\jam\netmail -sort');
     Halt(1);
   end;
 
