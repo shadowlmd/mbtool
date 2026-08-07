@@ -18,7 +18,7 @@ jobs:
           git clone https://github.com/shadowlmd/skMHL-avs.git
 
       - name: Cache FreePascal
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: C:\FPC\3.2.2
           key: fpc-3.2.2
