@@ -32,7 +32,7 @@ jobs:
               Start-Process -FilePath .\fpc-installer.exe -ArgumentList '/VERYSILENT' -Wait
           }
 
-      - name: Build mbtool.exe
+      - name: Build binaries
         shell: cmd
         run: |
           mkdir release
@@ -43,11 +43,18 @@ jobs:
             -FiskMHL-avs\sources ^
             -g -gl ^
             mbtool.pas
+          C:\FPC\3.2.2\bin\i386-win32\fpc.exe -B -dRELEASE ^
+            -Flrelease ^
+            -FUrelease ^
+            -FuskMHL-avs\sources ^
+            -FiskMHL-avs\sources ^
+            -g -gl ^
+            recode.pas
 
       - name: Create archive
         shell: powershell
         run: |
-          Compress-Archive -Path mbtool.exe -DestinationPath mbtool-windows.zip
+          Compress-Archive -Path mbtool.exe, recode.exe -DestinationPath mbtool-windows.zip
 
       - name: Move latest tag to current commit
         shell: powershell

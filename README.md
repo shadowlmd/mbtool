@@ -1,11 +1,13 @@
 # mbtool
-Fido message base tool (Jam/Squish/MSG)
+Fido message base tools (Jam/Squish/MSG)
 
-This tool allows to convert message bases between supported formats with sorting (honoring TZUTC kludge) and deduplication.
+This repository contains tools for Fido message base conversion, processing, and character set recoding:
+- **mbtool**: Convert message bases between supported formats with sorting (honoring TZUTC kludge) and deduplication.
+- **recode**: Recode message character sets in Fido message bases (e.g. UTF-8 to CP866/CP850, fixing incorrect CHRS kludges).
 
 It is based on [skMHL](https://github.com/shadowlmd/skMHL-avs) library and can be built with [Free Pascal](https://www.freepascal.org/) compiler.
 
-# usage
+# usage (mbtool)
 
 ```
 Fido message base conversion and processing tool
@@ -28,7 +30,25 @@ Base Specification format:
     F, M, * - MSG / Opus
 ```
 
+# usage (recode)
+
+```
+Fido message base character set recoding tool
+
+Usage:
+  recode.exe <basespec> <from_charset> <to_charset> [search_charset | msg_number]
+
+Parameters:
+  <basespec>       Message base specification
+  <from_charset>   Source character set
+  <to_charset>     Destination character set
+  [search_charset] Optional character set to match in CHRS kludge
+  [msg_number]     Optional specific message number to recode
+```
+
 # examples
+
+## mbtool examples
 ### convert JAM base to Squish base and skip dupe messages
 ```
 mbtool.exe -src Jc:\fido\msgbase\jam\ruftndev -dst Sc:\fido\msgbase\squish\ruftndev -dedup
@@ -47,4 +67,30 @@ mbtool.exe -src Jc:\fido\msgbase\jam\enetsys -dst Sc:\fido\msgbase\squish\enetsy
 ### convert MSG (Opus) base to JAM base and sort it
 ```
 mbtool.exe -src Mc:\fido\msgbase\msg\netmail -dst Jc:\fido\msgbase\jam\netmail -sort
+```
+
+## recode examples
+### recode messages from UTF-8 to CP866
+```
+recode.exe Jc:\fido\msgbase\jam\ruftndev UTF-8 CP866
+```
+
+### recode messages from UTF-8 to CP850
+```
+recode.exe Sc:\fido\msgbase\squish\fn_sysop UTF-8 CP850
+```
+
+### recode messages with incorrect CHRS kludge (KOI instead of KOI8-R)
+```
+recode.exe Mc:\fido\msgbase\msg\netmail KOI8-R CP866 KOI
+```
+
+### replace incorrect CHRS kludge (ASCII -> CP866)
+```
+recode.exe Jc:\fido\msgbase\jam\su_chainik CP866 CP866 ASCII
+```
+
+### recode specific message #666 even if it has no CHRS kludge
+```
+recode.exe Sc:\fido\msgbase\squish\ru_linux KOI8-R CP866 666
 ```
