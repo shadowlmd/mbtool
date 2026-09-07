@@ -76,27 +76,27 @@ mbtool.exe -src Mc:\fido\msgbase\msg\netmail -dst Jc:\fido\msgbase\jam\netmail -
 ```
 
 ## recode examples
-### recode messages from UTF-8 to CP866
+### recode messages in JAM base from UTF-8 to CP866
 ```
 recode.exe Jc:\fido\msgbase\jam\ruftndev UTF-8 CP866
 ```
 
-### recode messages from UTF-8 to CP850
+### recode messages in Squish base from UTF-8 to CP850
 ```
 recode.exe Sc:\fido\msgbase\squish\fn_sysop UTF-8 CP850
 ```
 
-### recode messages with incorrect CHRS kludge (KOI instead of KOI8-R)
+### recode messages in MSG base with incorrect CHRS kludge (KOI instead of KOI8-R)
 ```
 recode.exe Mc:\fido\msgbase\msg\netmail KOI8-R CP866 KOI
 ```
 
-### replace incorrect CHRS kludge (ASCII -> CP866)
+### replace incorrect CHRS kludge in JAM base (ASCII -> CP866)
 ```
 recode.exe Jc:\fido\msgbase\jam\su_chainik CP866 CP866 ASCII
 ```
 
-### recode specific message #666 even if it has no CHRS kludge
+### recode specific message #666 in Squish base even if it has no CHRS kludge
 ```
 recode.exe Sc:\fido\msgbase\squish\ru_linux KOI8-R CP866 666
 ```
