@@ -145,7 +145,7 @@ begin
     WriteLn('  [msg_number]     Optional specific message number to recode');
     WriteLn;
     WriteLn('Note:');
-    WriteLn('  recode operates interactively with manual confirmation. A preview');
+    WriteLn('  This tool operates interactively with manual confirmation. A preview');
     WriteLn('  of the decoded message is shown on screen before writing to base.');
     WriteLn('  It is recommended to recode to your console character set (e.g., CP866)');
     WriteLn('  so the preview is readable, or do so at your own risk.');
