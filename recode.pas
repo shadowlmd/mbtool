@@ -132,7 +132,34 @@ begin
 
   if ParamCount < 3 then
   begin
-    WriteLn('Usage: ', ParamStr(0), ' <basespec> <from_charset> <to_carset> [search_charset|msg_number]');
+    WriteLn('Fido message base character set recoding tool');
+    WriteLn;
+    WriteLn('Usage:');
+    WriteLn('  ', ParamStr(0), ' <basespec> <from_charset> <to_charset> [search_charset | msg_number]');
+    WriteLn;
+    WriteLn('Parameters:');
+    WriteLn('  <basespec>       Message base specification');
+    WriteLn('  <from_charset>   Source character set');
+    WriteLn('  <to_charset>     Destination character set');
+    WriteLn('  [search_charset] Optional character set to match in CHRS kludge');
+    WriteLn('  [msg_number]     Optional specific message number to recode');
+    WriteLn;
+    WriteLn('Base Specification format:');
+    WriteLn('  <Letter><Path>');
+    WriteLn('  Where Letter is:');
+    WriteLn('    J - JAM');
+    WriteLn('    S - Squish');
+    WriteLn('    F, M, * - MSG / Opus');
+    WriteLn;
+    WriteLn('Examples:');
+    WriteLn('  ', ParamStr(0), ' Jc:\fido\msgbase\jam\ruftndev UTF-8 CP866');
+    WriteLn('  ', ParamStr(0), ' Sc:\fido\msgbase\squish\fn_sysop UTF-8 CP850');
+    WriteLn('  ', ParamStr(0), ' Mc:\fido\msgbase\msg\netmail KOI8-R CP866 KOI');
+    WriteLn('    (recode messages with incorrect CHRS kludge: KOI instead of KOI8-R)');
+    WriteLn('  ', ParamStr(0), ' Jc:\fido\msgbase\jam\su_chainik CP866 CP866 ASCII');
+    WriteLn('    (just replace incorrect CHRS kludge: ASCII -> CP866)');
+    WriteLn('  ', ParamStr(0), ' Sc:\fido\msgbase\squish\ru_linux KOI8-R CP866 666');
+    WriteLn('    (recode message #666 even if it has no CHRS kludge)');
     Halt(1);
   end;
 
