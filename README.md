@@ -45,6 +45,13 @@ Parameters:
   [search_charset] Optional character set to match in CHRS kludge
   [msg_number]     Optional specific message number to recode
 
+Base Specification format:
+  <Letter><Path>
+  Where Letter is:
+    J - JAM
+    S - Squish
+    F, M, * - MSG / Opus
+
 Note:
   This tool operates interactively with manual confirmation. A preview
   of the decoded message is shown on screen before writing to base.
