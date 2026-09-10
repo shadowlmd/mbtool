@@ -45,12 +45,6 @@ begin
   repeat
     Write(Prompt, ' [Yes/All/No/Quit]: ');
 
-    if DontAsk then
-    begin
-      WriteLn('Yes (All)');
-      Exit(0);
-    end;
-
     ReadLn(S);
     S := UpperCase(S);
 
@@ -110,17 +104,27 @@ begin
   B^.TruncateText;
   B^.WriteText(PChar(Converted)^, StrLen(PChar(Converted)));
 
-  DisplayMessage;
+  if DontAsk then
+  begin
+    DisplayMessage;
+    I := YNQ('Above is a preview of the decoded message. Write it to the message base?');
+  end else
+    I := 0;
 
-  I := YNQ('Above is a preview of the decoded message. Write it to the message base?');
   if I = 0 then
   begin
-    B^.WriteMessage;
-    if FromCharset <> SearchCharset then
-      DisplayCharset := FromCharSet + ' (' + SearchCharset + ')'
-    else
-      DisplayCharset := FromCharset;
-    WriteLn('Converted message #', B^.Current, ' from ', DisplayCharset, ' to ', ToCharset);
+    if B^.WriteMessage then
+    begin
+      if FromCharset <> SearchCharset then
+        DisplayCharset := FromCharSet + ' (' + SearchCharset + ')'
+      else
+        DisplayCharset := FromCharset;
+      WriteLn('Converted message #', B^.Current, ' from ', DisplayCharset, ' to ', ToCharset);
+    end else
+    begin
+      WriteLn('Failed to write message #', B^.Current, ' to message base - aborting.');
+      I := 2;
+    end;
   end else
     WriteLn('Ok, message #', B^.Current, ' is left unchanged');
 
