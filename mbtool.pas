@@ -88,9 +88,6 @@ var
   I, J, ParentIdx: Longint;
   Rec1, Rec2: PIndexRec;
 begin
-  if not SortBase then
-    exit;
-
   I := 0;
   while I < Count do
   begin
