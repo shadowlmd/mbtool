@@ -41,14 +41,12 @@ jobs:
             -FUrelease ^
             -FuskMHL-avs\sources ^
             -FiskMHL-avs\sources ^
-            -g -gl ^
             mbtool.pas
           C:\FPC\3.2.2\bin\i386-win32\fpc.exe -B -dRELEASE ^
             -Flrelease ^
             -FUrelease ^
             -FuskMHL-avs\sources ^
             -FiskMHL-avs\sources ^
-            -g -gl ^
             recode.pas
 
       - name: Create archive
