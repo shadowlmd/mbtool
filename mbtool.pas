@@ -131,7 +131,8 @@ var
   I, J: Longint;
   R1, R2: PIndexRec;
 begin
-  for I := 0 to Count - 2 do
+  I := 0;
+  while I < Count - 1 do
   begin
     R1 := At(I);
     J := I + 1;
@@ -144,11 +145,13 @@ begin
          (R1^.Subject^ = R2^.Subject^) and
          (AddressCompare(R1^.FromAddress, R2^.FromAddress) = 0) and
          (AddressCompare(R1^.ToAddress, R2^.ToAddress) = 0) and
-         (MessageBaseDateTimeCompare(R1^.WrittenDateUTC, R2^.WrittenDateUTC) = 0) then
+         (MessageBaseDateTimeCompare(R1^.WrittenDateUTC, R2^.WrittenDateUTC) = 0)
+      then
         AtFree(J)
       else
         Inc(J);
     end;
+    Inc(I);
   end;
 end;
 
