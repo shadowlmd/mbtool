@@ -14,9 +14,9 @@ const
 type
   TIndexRecCollection = object(TSortedCollection)
     function Compare(Key1, Key2: Pointer): Longint; virtual;
-    procedure Insert(Item: Pointer); virtual;
     procedure FreeItem(Item: Pointer); virtual;
     procedure SortReplyChains; virtual;
+    procedure DedupByKey; virtual;
   end;
 
   PIndexRec = ^TIndexRec;
@@ -58,35 +58,15 @@ end;
 
 function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
 var
-  I: Integer;
   Rec1, Rec2: TIndexRec;
 begin
   Rec1 := PIndexRec(Key1)^;
   Rec2 := PIndexRec(Key2)^;
 
-  I := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
-  if I <> 0 then
-  begin
-    if SortBase then Compare := I
-                else Compare := -1;
-  end else
-  if Rec1.MSGID^ <> Rec2.MSGID^ then Compare := -1 else
-  if Rec1.FromName^ <> Rec2.FromName^ then Compare := -1 else
-  if Rec1.ToName^ <> Rec2.ToName^ then Compare := -1 else
-  if Rec1.Subject^ <> Rec2.Subject^ then Compare := -1 else
-  if AddressCompare(Rec1.FromAddress, Rec2.FromAddress) <> 0 then Compare := -1 else
-  if AddressCompare(Rec1.ToAddress, Rec2.ToAddress) <> 0 then Compare := -1 else
-    Compare := 0;
-end;
-
-procedure TIndexRecCollection.Insert(Item: Pointer);
-var
-  OldCount: Longint;
-begin
-  OldCount := Count;
-  inherited Insert(Item);
-  if OldCount = Count then
-    FreeItem(Item);
+  if not SortBase then
+    Compare := -1
+  else
+    Compare := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
 end;
 
 procedure TIndexRecCollection.FreeItem(Item: Pointer);
@@ -133,18 +113,42 @@ begin
         begin
           AtDelete(ParentIdx);
           AtInsert(I, Rec2);
-          // WriteLn('[INFO] Message #', ParentIdx + 1, ' (MSGID: ', Rec2^.MSGID^, ') sorted before #', I + 1, ' (parent, missing TZUTC)');
           Inc(I);
         end else
         begin
           AtDelete(I);
           AtInsert(ParentIdx, Rec1);
-          // WriteLn('[INFO] Message #', I + 1, ' (MSGID: ', Rec1^.MSGID^, ') sorted after #', ParentIdx + 1, ' (reply, missing TZUTC)');
           continue;
         end;
       end;
     end;
     Inc(I);
+  end;
+end;
+
+procedure TIndexRecCollection.DedupByKey;
+var
+  I, J: Longint;
+  R1, R2: PIndexRec;
+begin
+  for I := 0 to Count - 2 do
+  begin
+    R1 := At(I);
+    J := I + 1;
+    while J < Count do
+    begin
+      R2 := At(J);
+      if (R1^.MSGID^ = R2^.MSGID^) and
+         (R1^.FromName^ = R2^.FromName^) and
+         (R1^.ToName^ = R2^.ToName^) and
+         (R1^.Subject^ = R2^.Subject^) and
+         (AddressCompare(R1^.FromAddress, R2^.FromAddress) = 0) and
+         (AddressCompare(R1^.ToAddress, R2^.ToAddress) = 0) and
+         (MessageBaseDateTimeCompare(R1^.WrittenDateUTC, R2^.WrittenDateUTC) = 0) then
+        AtFree(J)
+      else
+        Inc(J);
+    end;
   end;
 end;
 
@@ -257,7 +261,7 @@ begin
   WriteLn('[INFO] Converting message base ', SourceBasePath, ' (', SourceFormat, ') to ', DestBasePath, ' (', DestFormat, ')');
 
   IndexRecCollection.Init(SourceBase^.GetCount, 5);
-  IndexRecCollection.Duplicates := not DedupBase;
+  IndexRecCollection.Duplicates := true;
 
   SourceBase^.SetBaseType(btNetmail);
 
@@ -322,7 +326,11 @@ begin
     SourceBase^.SeekNext;
   end;
 
-  IndexRecCollection.SortReplyChains;
+  if DedupBase then
+    IndexRecCollection.DedupByKey;
+
+  if SortBase then
+    IndexRecCollection.SortReplyChains;
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
