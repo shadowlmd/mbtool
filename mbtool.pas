@@ -367,17 +367,6 @@ begin
       break;
     end;
 
-    { copy message text first because other manipulations may set additional kludges }
-    SourceTextStream := SourceBase^.GetMessageTextStream;
-    DestTextStream := DestBase^.GetMessageTextStream;
-    SourceTextStream^.Seek(0);
-    DestTextStream^.Seek(0);
-    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
-    DestTextStream^.Truncate;
-
-    if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
-      WriteLn('[WARN] Message #', IndexRec^.MsgNum, ' -> #', DestBase^.Current, ' text size changed!');
-
     { copy message headers }
     if not (IsCleanAddress(IndexRec^.FromAddress) or IsCleanAddress(IndexRec^.ToAddress)) then
       DestBase^.SetFromAndToAddress(IndexRec^.FromAddress, IndexRec^.ToAddress, False)
@@ -412,18 +401,23 @@ begin
     DestBase^.SetArrivedDateTime(MsgDT);
     DestBase^.SetRead(SourceBase^.GetRead);
 
-    { overwrite generated MSGID kludge with the original one }
-    { or delete it if original message didn't have it }
-    if IndexRec^.MSGID^ <> '' then
-      DestBase^.SetKludge(#1'MSGID:', #1'MSGID: ' + IndexRec^.MSGID^)
-    else
-      DestBase^.DeleteKludge(#1'MSGID:');
+    { copy message text }
+    SourceTextStream := SourceBase^.GetMessageTextStream;
+    DestTextStream := DestBase^.GetMessageTextStream;
+    SourceTextStream^.Seek(0);
+    DestTextStream^.Seek(0);
+    DestTextStream^.CopyFrom(SourceTextStream^, SourceTextStream^.GetSize);
+    DestTextStream^.Truncate;
+
+    if SourceBase^.GetTextSize <> DestBase^.GetTextSize then
+      WriteLn('[WARN] Message #', IndexRec^.MsgNum, ' -> #', DestBase^.Current, ' text size changed!');
 
     DestBase^.WriteMessage;
     DestBase^.CloseMessage;
 
     SourceBase^.CloseMessage;
   end;
+
   CloseMessageBase(DestBase);
   CloseMessageBase(SourceBase);
 
