@@ -7,8 +7,8 @@ uses
   skCommon;
 
 const
-  SortBase  : Boolean   = false;
-  DedupBase : Boolean   = false;
+  SortBase  : Boolean   = False;
+  DedupBase : Boolean   = False;
   DefTZUTC  : String[5] = '0000';
 
 type
@@ -217,10 +217,10 @@ begin
       DefTZUTC := ParamStr(I);
     end else
     if ParamStr(I) = '-sort' then
-      SortBase := true
+      SortBase := True
     else
     if ParamStr(I) = '-dedup' then
-      DedupBase := true
+      DedupBase := True
     else
       WriteLn('[WARN] Unknown command line parameter: ', ParamStr(I));
     Inc(I);
@@ -261,7 +261,7 @@ begin
   WriteLn('[INFO] Converting message base ', SourceBasePath, ' (', SourceFormat, ') to ', DestBasePath, ' (', DestFormat, ')');
 
   IndexRecCollection.Init(SourceBase^.GetCount, 5);
-  IndexRecCollection.Duplicates := true;
+  IndexRecCollection.Duplicates := True;
 
   SourceBase^.SetBaseType(btNetmail);
 
@@ -290,7 +290,7 @@ begin
         if SortBase then
         begin
           I := DefTZUTCI;
-          HasTZUTC := false;
+          HasTZUTC := False;
           if SourceBase^.GetKludge(#1'TZUTC:', S) then
           begin
             S := ExtractWord(2, S, [' ']);
@@ -300,7 +300,7 @@ begin
               WriteLn('[WARN] Incorrect TZUTC in message #', Index, ': "', S, '", using default (', DefTZUTC, ')');
               I := DefTZUTCI;
             end else
-              HasTZUTC := true;
+              HasTZUTC := True;
           end;
           MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
           T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
@@ -380,10 +380,10 @@ begin
 
     { copy message headers }
     if not (IsCleanAddress(IndexRec^.FromAddress) or IsCleanAddress(IndexRec^.ToAddress)) then
-      DestBase^.SetFromAndToAddress(IndexRec^.FromAddress, IndexRec^.ToAddress, false)
+      DestBase^.SetFromAndToAddress(IndexRec^.FromAddress, IndexRec^.ToAddress, False)
     else
     if not IsCleanAddress(IndexRec^.FromAddress) then
-      DestBase^.SetFromAddress(IndexRec^.FromAddress, false)
+      DestBase^.SetFromAddress(IndexRec^.FromAddress, False)
     else
     if not IsCleanAddress(IndexRec^.ToAddress) then
       DestBase^.SetToAddress(IndexRec^.ToAddress);
