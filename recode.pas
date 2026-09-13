@@ -105,11 +105,12 @@ begin
   B^.WriteText(PChar(Converted)^, StrLen(PChar(Converted)));
 
   if DontAsk then
+    I := 0
+  else
   begin
     DisplayMessage;
     I := YNQ('Above is a preview of the decoded message. Write it to the message base?');
-  end else
-    I := 0;
+  end;
 
   if I = 0 then
   begin
