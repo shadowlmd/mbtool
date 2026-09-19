@@ -28,6 +28,8 @@ type
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
+    { REPLY is allocated and HasTZUTC is set only when sorting is requested,
+      FreeItem releases REPLY under the same condition }
     REPLY: PString;
     HasTZUTC: Boolean;
     FromName: PString;
@@ -124,9 +126,18 @@ begin
         Dec(J);
       end;
     until I > J;
-    if L < J then
-      SortByMSGID(Recs, Idx, L, J);
-    L := I;
+    { recurse into the smaller half so that the nesting stays logarithmic }
+    if (J - L) < (R - I) then
+    begin
+      if L < J then
+        SortByMSGID(Recs, Idx, L, J);
+      L := I;
+    end else
+    begin
+      if I < R then
+        SortByMSGID(Recs, Idx, I, R);
+      R := J;
+    end;
   until L >= R;
 end;
 
@@ -164,9 +175,18 @@ begin
         Dec(J);
       end;
     until I > J;
-    if L < J then
-      SortBySortKey(Key, Idx, L, J);
-    L := I;
+    { recurse into the smaller half so that the nesting stays logarithmic }
+    if (J - L) < (R - I) then
+    begin
+      if L < J then
+        SortBySortKey(Key, Idx, L, J);
+      L := I;
+    end else
+    begin
+      if I < R then
+        SortBySortKey(Key, Idx, I, R);
+      R := J;
+    end;
   until L >= R;
 end;
 
@@ -188,7 +208,7 @@ var
   Recs: TIndexRecArray;
   Key: TInt64Array;
   Idx, Parent, Order, ChildHead, NextChild, Stack, State: TLongintArray;
-  Pulled: TBoolArray;
+  Anchored: TBoolArray;
   N, I, J, K, L, R, M, C, P, SP: Longint;
 begin
   N := Count;
@@ -216,44 +236,37 @@ begin
     if Recs[I]^.REPLY^ = '' then
       Continue;
 
-    { locate the first message carrying the referenced MSGID }
+    { the index is ordered by MSGID and, within equal MSGIDs, by message
+      position, so searching it for (REPLY, own position) lands right between
+      the messages this one may be replying to }
     L := 0;
     R := N - 1;
-    M := -1;
+    M := N;
     while L <= R do
     begin
       K := (L + R) div 2;
-      if Recs[Idx[K]]^.MSGID^ < Recs[I]^.REPLY^ then
+      C := Idx[K];
+      if (Recs[C]^.MSGID^ < Recs[I]^.REPLY^) or
+         ((Recs[C]^.MSGID^ = Recs[I]^.REPLY^) and (C < I)) then
         L := K + 1
       else
       begin
-        if Recs[Idx[K]]^.MSGID^ = Recs[I]^.REPLY^ then
-          M := K;
+        M := K;
         R := K - 1;
       end;
     end;
-    if M = -1 then
-      Continue;
 
     { with duplicated MSGIDs prefer the nearest preceding message, it needs no
       move at all, and fall back to the first following one }
-    P := -1;
-    K := M;
-    while (K < N) and (Recs[Idx[K]]^.MSGID^ = Recs[I]^.REPLY^) do
+    if (M > 0) and (Recs[Idx[M - 1]]^.MSGID^ = Recs[I]^.REPLY^) then
+      Parent[I] := Idx[M - 1]
+    else
     begin
-      C := Idx[K];
-      if C < I then
-        P := C
-      else
-      if C > I then
-      begin
-        if P = -1 then
-          P := C;
-        Break;
-      end;
-      Inc(K);
+      if (M < N) and (Idx[M] = I) then
+        Inc(M);
+      if (M < N) and (Recs[Idx[M]]^.MSGID^ = Recs[I]^.REPLY^) then
+        Parent[I] := Idx[M];
     end;
-    Parent[I] := P;
   end;
 
   { drop references closing a loop, such messages have no valid order }
@@ -341,25 +354,24 @@ begin
       end;
 
   { leaves to roots: a message without TZUTC standing behind its own reply got
-    its date guessed wrong, so pull it in front of that reply. Pulled messages
-    anchor their parents in turn, which drags a whole chain of messages with
-    guessed dates in front of a reply having a reliable one }
-  SetLength(Pulled, N);
+    its date guessed wrong, so pull it in front of that reply. A message counts
+    as anchored when itself or anything replying to it, however deep, has a
+    reliable date, so a whole chain of guessed dates is dragged in front of a
+    single reply carrying TZUTC }
+  SetLength(Anchored, N);
   for I := 0 to N - 1 do
-    Pulled[I] := False;
+    Anchored[I] := Recs[I]^.HasTZUTC;
   for K := N - 1 downto 0 do
   begin
     I := Order[K];
     P := Parent[I];
-    if (P = -1) or Recs[P]^.HasTZUTC then
+    if (P = -1) or not Anchored[I] then
       Continue;
-    if not (Recs[I]^.HasTZUTC or Pulled[I]) then
+    Anchored[P] := True;
+    if Recs[P]^.HasTZUTC then
       Continue;
     if (Key[P] > Key[I]) or ((Key[P] = Key[I]) and (P > I)) then
-    begin
       Key[P] := Key[I] - 1;
-      Pulled[P] := True;
-    end;
   end;
 
   { roots to leaves: whatever is still out of order can only be fixed by moving
