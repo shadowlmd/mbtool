@@ -24,7 +24,7 @@ type
   PIndexRec = ^TIndexRec;
   TIndexRec = record
     Index, MsgNum: Longint;
-    WrittenDateUTC: TMessageBaseDateTime;
+    WrittenTimeUTC: Int64;
     FromAddress: TAddress;
     ToAddress: TAddress;
     MSGID: PString;
@@ -35,6 +35,11 @@ type
     Subject: PString;
   end;
 
+  TIndexRecArray = array of PIndexRec;
+  TLongintArray = array of Longint;
+  TInt64Array = array of Int64;
+  TBoolArray = array of Boolean;
+
 var
   SourceBase, DestBase: PMessageBase;
   SourceTextStream, DestTextStream: PMessageBaseStream;
@@ -44,7 +49,6 @@ var
   IndexRec: PIndexRec;
   IndexRecCollection: TIndexRecCollection;
   DefTZUTCI, I, Err: Longint;
-  T: Int64;
 
 function NewPString(const S: String): PString;
 begin
@@ -59,16 +63,17 @@ begin
 end;
 
 function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
-var
-  Rec1, Rec2: TIndexRec;
 begin
-  Rec1 := PIndexRec(Key1)^;
-  Rec2 := PIndexRec(Key2)^;
-
   if not SortBase then
     Compare := -1
   else
-    Compare := MessageBaseDateTimeCompare(Rec1.WrittenDateUTC, Rec2.WrittenDateUTC);
+  if PIndexRec(Key1)^.WrittenTimeUTC < PIndexRec(Key2)^.WrittenTimeUTC then
+    Compare := -1
+  else
+  if PIndexRec(Key1)^.WrittenTimeUTC > PIndexRec(Key2)^.WrittenTimeUTC then
+    Compare := 1
+  else
+    Compare := 0;
 end;
 
 procedure TIndexRecCollection.FreeItem(Item: Pointer);
@@ -85,44 +90,299 @@ begin
   Dispose(PIndexRec(Item));
 end;
 
+{ orders messages by MSGID, equal MSGIDs keep their original order }
+function CompareMSGID(var Recs: TIndexRecArray; A, B: Longint): Longint;
+begin
+  if Recs[A]^.MSGID^ < Recs[B]^.MSGID^ then
+    Result := -1
+  else
+  if Recs[A]^.MSGID^ > Recs[B]^.MSGID^ then
+    Result := 1
+  else
+    Result := A - B;
+end;
+
+procedure SortByMSGID(var Recs: TIndexRecArray; var Idx: TLongintArray; L, R: Longint);
+var
+  I, J, P, T: Longint;
+begin
+  repeat
+    I := L;
+    J := R;
+    P := Idx[(L + R) div 2];
+    repeat
+      while CompareMSGID(Recs, Idx[I], P) < 0 do
+        Inc(I);
+      while CompareMSGID(Recs, Idx[J], P) > 0 do
+        Dec(J);
+      if I <= J then
+      begin
+        T := Idx[I];
+        Idx[I] := Idx[J];
+        Idx[J] := T;
+        Inc(I);
+        Dec(J);
+      end;
+    until I > J;
+    if L < J then
+      SortByMSGID(Recs, Idx, L, J);
+    L := I;
+  until L >= R;
+end;
+
+{ orders messages by sort key, equal keys keep their original order }
+function CompareSortKey(var Key: TInt64Array; A, B: Longint): Longint;
+begin
+  if Key[A] < Key[B] then
+    Result := -1
+  else
+  if Key[A] > Key[B] then
+    Result := 1
+  else
+    Result := A - B;
+end;
+
+procedure SortBySortKey(var Key: TInt64Array; var Idx: TLongintArray; L, R: Longint);
+var
+  I, J, P, T: Longint;
+begin
+  repeat
+    I := L;
+    J := R;
+    P := Idx[(L + R) div 2];
+    repeat
+      while CompareSortKey(Key, Idx[I], P) < 0 do
+        Inc(I);
+      while CompareSortKey(Key, Idx[J], P) > 0 do
+        Dec(J);
+      if I <= J then
+      begin
+        T := Idx[I];
+        Idx[I] := Idx[J];
+        Idx[J] := T;
+        Inc(I);
+        Dec(J);
+      end;
+    until I > J;
+    if L < J then
+      SortBySortKey(Key, Idx, L, J);
+    L := I;
+  until L >= R;
+end;
+
+{ Reorders messages so that every reply follows the message it replies to.
+
+  Ordering constraints are applied to a sort key instead of moving messages
+  around, so every step is a single pass and the result cannot depend on the
+  order in which violations happen to be found. The key is the written date in
+  Unix seconds, the same value the collection is already sorted by, therefore
+  a base without violations keeps its order untouched.
+
+  Messages having a TZUTC kludge carry a reliable date and are kept in place
+  as long as the order can be repaired by moving messages without TZUTC.
+  Messages are moved against their reliable date only as a last resort, when
+  their own reply chain leaves no other option. }
+
 procedure TIndexRecCollection.SortReplyChains;
 var
-  I, J, ParentIdx: Longint;
-  Rec1, Rec2: PIndexRec;
+  Recs: TIndexRecArray;
+  Key: TInt64Array;
+  Idx, Parent, Order, ChildHead, NextChild, Stack, State: TLongintArray;
+  Pulled: TBoolArray;
+  N, I, J, K, L, R, M, C, P, SP: Longint;
 begin
-  I := 0;
-  while I < Count do
+  N := Count;
+  if N < 2 then
+    Exit;
+
+  SetLength(Recs, N);
+  SetLength(Key, N);
+  for I := 0 to N - 1 do
   begin
-    Rec1 := At(I);
-    if (Rec1^.REPLY^ <> '') then
+    Recs[I] := At(I);
+    Key[I] := Recs[I]^.WrittenTimeUTC;
+  end;
+
+  { index messages by MSGID to look parents up without scanning the base }
+  SetLength(Idx, N);
+  for I := 0 to N - 1 do
+    Idx[I] := I;
+  SortByMSGID(Recs, Idx, 0, N - 1);
+
+  SetLength(Parent, N);
+  for I := 0 to N - 1 do
+  begin
+    Parent[I] := -1;
+    if Recs[I]^.REPLY^ = '' then
+      Continue;
+
+    { locate the first message carrying the referenced MSGID }
+    L := 0;
+    R := N - 1;
+    M := -1;
+    while L <= R do
     begin
-      ParentIdx := -1;
-      for J := I + 1 to Count - 1 do
+      K := (L + R) div 2;
+      if Recs[Idx[K]]^.MSGID^ < Recs[I]^.REPLY^ then
+        L := K + 1
+      else
       begin
-        Rec2 := At(J);
-        if (Rec2^.MSGID^ = Rec1^.REPLY^) and not (Rec1^.HasTZUTC and Rec2^.HasTZUTC) then
-        begin
-          ParentIdx := J;
-          break;
-        end;
-      end;
-      if ParentIdx <> -1 then
-      begin
-        if Rec1^.HasTZUTC then
-        begin
-          AtDelete(ParentIdx);
-          AtInsert(I, Rec2);
-          Inc(I);
-        end else
-        begin
-          AtDelete(I);
-          AtInsert(ParentIdx, Rec1);
-          continue;
-        end;
+        if Recs[Idx[K]]^.MSGID^ = Recs[I]^.REPLY^ then
+          M := K;
+        R := K - 1;
       end;
     end;
-    Inc(I);
+    if M = -1 then
+      Continue;
+
+    { with duplicated MSGIDs prefer the nearest preceding message, it needs no
+      move at all, and fall back to the first following one }
+    P := -1;
+    K := M;
+    while (K < N) and (Recs[Idx[K]]^.MSGID^ = Recs[I]^.REPLY^) do
+    begin
+      C := Idx[K];
+      if C < I then
+        P := C
+      else
+      if C > I then
+      begin
+        if P = -1 then
+          P := C;
+        Break;
+      end;
+      Inc(K);
+    end;
+    Parent[I] := P;
   end;
+
+  { drop references closing a loop, such messages have no valid order }
+  SetLength(State, N);
+  SetLength(Stack, N);
+  for I := 0 to N - 1 do
+    State[I] := 0;
+  for I := 0 to N - 1 do
+  begin
+    if State[I] <> 0 then
+      Continue;
+    SP := 0;
+    J := I;
+    while (J <> -1) and (State[J] = 0) do
+    begin
+      State[J] := 1;
+      Stack[SP] := J;
+      Inc(SP);
+      J := Parent[J];
+    end;
+    if (J <> -1) and (State[J] = 1) then
+    begin
+      WriteLn('[WARN] Reply loop detected at message #', Recs[Stack[SP - 1]]^.MsgNum,
+              ', ignoring its REPLY reference');
+      Parent[Stack[SP - 1]] := -1;
+    end;
+    while SP > 0 do
+    begin
+      Dec(SP);
+      State[Stack[SP]] := 2;
+    end;
+  end;
+
+  { references now form a forest, collect children of every message }
+  SetLength(ChildHead, N);
+  SetLength(NextChild, N);
+  for I := 0 to N - 1 do
+  begin
+    ChildHead[I] := -1;
+    NextChild[I] := -1;
+  end;
+  for I := N - 1 downto 0 do
+    if Parent[I] <> -1 then
+    begin
+      NextChild[I] := ChildHead[Parent[I]];
+      ChildHead[Parent[I]] := I;
+    end;
+
+  { walk the forest from roots to leaves, every message is visited after the
+    message it replies to }
+  SetLength(Order, N);
+  K := 0;
+  SP := 0;
+  for I := N - 1 downto 0 do
+    if Parent[I] = -1 then
+    begin
+      Stack[SP] := I;
+      Inc(SP);
+    end;
+  while SP > 0 do
+  begin
+    Dec(SP);
+    J := Stack[SP];
+    State[J] := 3;
+    Order[K] := J;
+    Inc(K);
+    C := ChildHead[J];
+    while C <> -1 do
+    begin
+      Stack[SP] := C;
+      Inc(SP);
+      C := NextChild[C];
+    end;
+  end;
+
+  { messages left out of the traversal would mean a loop survived, drop their
+    references and keep them where they are rather than lose them }
+  if K < N then
+    for I := 0 to N - 1 do
+      if State[I] <> 3 then
+      begin
+        Parent[I] := -1;
+        Order[K] := I;
+        Inc(K);
+      end;
+
+  { leaves to roots: a message without TZUTC standing behind its own reply got
+    its date guessed wrong, so pull it in front of that reply. Pulled messages
+    anchor their parents in turn, which drags a whole chain of messages with
+    guessed dates in front of a reply having a reliable one }
+  SetLength(Pulled, N);
+  for I := 0 to N - 1 do
+    Pulled[I] := False;
+  for K := N - 1 downto 0 do
+  begin
+    I := Order[K];
+    P := Parent[I];
+    if (P = -1) or Recs[P]^.HasTZUTC then
+      Continue;
+    if not (Recs[I]^.HasTZUTC or Pulled[I]) then
+      Continue;
+    if (Key[P] > Key[I]) or ((Key[P] = Key[I]) and (P > I)) then
+    begin
+      Key[P] := Key[I] - 1;
+      Pulled[P] := True;
+    end;
+  end;
+
+  { roots to leaves: whatever is still out of order can only be fixed by moving
+    the reply itself behind its parent, even when its date is a reliable one }
+  for K := 0 to N - 1 do
+  begin
+    I := Order[K];
+    P := Parent[I];
+    if P = -1 then
+      Continue;
+    if (Key[I] > Key[P]) or ((Key[I] = Key[P]) and (I > P)) then
+      Continue;
+    if Recs[I]^.HasTZUTC then
+      WriteLn('[WARN] Message #', Recs[I]^.MsgNum, ' has TZUTC but precedes message #',
+              Recs[P]^.MsgNum, ' it replies to, moving it anyway');
+    Key[I] := Key[P] + 1;
+  end;
+
+  for I := 0 to N - 1 do
+    Idx[I] := I;
+  SortBySortKey(Key, Idx, 0, N - 1);
+  for I := 0 to N - 1 do
+    AtPut(I, Recs[Idx[I]]);
 end;
 
 procedure TIndexRecCollection.DedupByKey;
@@ -144,7 +404,7 @@ begin
          (R1^.Subject^ = R2^.Subject^) and
          (AddressCompare(R1^.FromAddress, R2^.FromAddress) = 0) and
          (AddressCompare(R1^.ToAddress, R2^.ToAddress) = 0) and
-         (MessageBaseDateTimeCompare(R1^.WrittenDateUTC, R2^.WrittenDateUTC) = 0)
+         (R1^.WrittenTimeUTC = R2^.WrittenTimeUTC)
       then
         AtFree(J)
       else
@@ -287,7 +547,8 @@ begin
         ToName := NewPString(SourceBase^.GetTo);
         Subject := NewPString(SourceBase^.GetSubject);
         SourceBase^.GetFromAndToAddress(FromAddress, ToAddress);
-        SourceBase^.GetWrittenDateTime(WrittenDateUTC);
+        SourceBase^.GetWrittenDateTime(MsgDT);
+        MessageBaseDateTimeToUnixDateTime(MsgDT, WrittenTimeUTC);
 
         if SourceBase^.GetKludge(#1'MSGID:', S) then
           S := Copy(S, 9, 255)
@@ -310,9 +571,7 @@ begin
             end else
               HasTZUTC := True;
           end;
-          MessageBaseDateTimeToUnixDateTime(WrittenDateUTC, T);
-          T := T - ((I div 100) * 3600) - ((I mod 100) * 60);
-          UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
+          WrittenTimeUTC := WrittenTimeUTC - ((I div 100) * 3600) - ((I mod 100) * 60);
 
           if SourceBase^.GetKludge(#1'REPLY:', S) then
             S := Trim(Copy(S, 8, 255))
