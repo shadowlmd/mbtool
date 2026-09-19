@@ -1,15 +1,17 @@
 {$MODE objfpc}
 
 uses
+  SysUtils,
   Objects,
   skMHL,
   skOpen,
   skCommon;
 
 const
-  SortBase  : Boolean   = False;
-  DedupBase : Boolean   = False;
-  DefTZUTC  : String[5] = '0000';
+  SortBase   : Boolean   = False;
+  DedupBase  : Boolean   = False;
+  AppendMode : Boolean   = False;
+  DefTZUTC   : String[5] = '0000';
 
 type
   TIndexRecCollection = object(TSortedCollection)
@@ -182,6 +184,7 @@ begin
     WriteLn('  -deftz <offset>  Default UTC offset for messages without TZUTC kludge (e.g., 0300 or -0500)');
     WriteLn('  -sort            Sort messages by date and reply chains');
     WriteLn('  -dedup           Remove duplicate messages');
+    WriteLn('  -append          Append messagges to existing message base');
     WriteLn;
     WriteLn('Base Specification format:');
     WriteLn('  <Letter><Path>');
@@ -222,6 +225,9 @@ begin
     if ParamStr(I) = '-dedup' then
       DedupBase := True
     else
+    if ParamStr(I) = '-append' then
+      AppendMode := True
+    else
       WriteLn('[WARN] Unknown command line parameter: ', ParamStr(I));
     Inc(I);
   end;
@@ -239,7 +245,7 @@ begin
   skCommon.MaxLineSize := 16384;
   skCommon.MaxMessageSize := 524288;
 
-  if ExistMessageBase(DestBaseID) then
+  if not AppendMode and ExistMessageBase(DestBaseID) then
   begin
     WriteLn('[CRIT] Destination base ', DestBasePath, ' (', DestFormat, ') already exists!');
     Halt(1);
@@ -264,6 +270,8 @@ begin
   IndexRecCollection.Duplicates := True;
 
   SourceBase^.SetBaseType(btNetmail);
+
+  WriteLn('[INFO] Reading source message base...');
 
   SourceBase^.Seek(0);
   while SourceBase^.SeekFound do
@@ -293,7 +301,7 @@ begin
           HasTZUTC := False;
           if SourceBase^.GetKludge(#1'TZUTC:', S) then
           begin
-            S := ExtractWord(2, S, [' ']);
+            S := Trim(Copy(S, 8, 255));
             Val(S, I, Err);
             if Err <> 0 then
             begin
@@ -307,7 +315,7 @@ begin
           UnixDateTimeToMessageBaseDateTime(T, WrittenDateUTC);
 
           if SourceBase^.GetKludge(#1'REPLY:', S) then
-            S := Copy(S, 9, 255)
+            S := Trim(Copy(S, 8, 255))
           else
             S := '';
           REPLY := NewPString(S);
@@ -327,10 +335,18 @@ begin
   end;
 
   if DedupBase then
+  begin
+    WriteLn('[INFO] Deduplicating...');
     IndexRecCollection.DedupByKey;
+  end;
 
   if SortBase then
+  begin
+    WriteLn('[INFO] Sorting replies...');
     IndexRecCollection.SortReplyChains;
+  end;
+
+  WriteLn('[INFO] Writing dest message base...');
 
   for I := 0 to IndexRecCollection.Count - 1 do
   begin
