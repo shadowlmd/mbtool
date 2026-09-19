@@ -563,7 +563,7 @@ begin
         MessageBaseDateTimeToUnixDateTime(MsgDT, WrittenTimeUTC);
 
         if SourceBase^.GetKludge(#1'MSGID:', S) then
-          S := Copy(S, 9, 255)
+          S := Trim(Copy(S, 8, 255))
         else
           S := '';
         MSGID := NewPString(S);
