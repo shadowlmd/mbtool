@@ -75,7 +75,7 @@ begin
   if PIndexRec(Key1)^.WrittenTimeUTC > PIndexRec(Key2)^.WrittenTimeUTC then
     Compare := 1
   else
-    Compare := 0;
+    Compare := CompareStr(PIndexRec(Key1)^.Subject^, PIndexRec(Key2)^.Subject^);
 end;
 
 procedure TIndexRecCollection.FreeItem(Item: Pointer);
