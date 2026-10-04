@@ -178,6 +178,95 @@ begin
   until L >= R;
 end;
 
+{ orders messages by the fields telling duplicates apart }
+function CompareDedupKey(R1, R2: PIndexRec): Longint;
+begin
+  if R1^.MSGID^ <> R2^.MSGID^ then
+  begin
+    if R1^.MSGID^ < R2^.MSGID^ then
+      Result := -1
+    else
+      Result := 1;
+  end else
+  if R1^.FromName^ <> R2^.FromName^ then
+  begin
+    if R1^.FromName^ < R2^.FromName^ then
+      Result := -1
+    else
+      Result := 1;
+  end else
+  if R1^.ToName^ <> R2^.ToName^ then
+  begin
+    if R1^.ToName^ < R2^.ToName^ then
+      Result := -1
+    else
+      Result := 1;
+  end else
+  if R1^.Subject^ <> R2^.Subject^ then
+  begin
+    if R1^.Subject^ < R2^.Subject^ then
+      Result := -1
+    else
+      Result := 1;
+  end else
+  begin
+    Result := AddressCompare(R1^.FromAddress, R2^.FromAddress);
+    if Result = 0 then
+      Result := AddressCompare(R1^.ToAddress, R2^.ToAddress);
+    if Result = 0 then
+      if R1^.WrittenTimeUTC < R2^.WrittenTimeUTC then
+        Result := -1
+      else
+      if R1^.WrittenTimeUTC > R2^.WrittenTimeUTC then
+        Result := 1;
+  end;
+end;
+
+{ orders messages by dedup key, equal keys keep their original order }
+function CompareDedup(var Recs: TIndexRecArray; A, B: Longint): Longint;
+begin
+  Result := CompareDedupKey(Recs[A], Recs[B]);
+  if Result = 0 then
+    Result := A - B;
+end;
+
+procedure SortByDedupKey(var Recs: TIndexRecArray; var Idx: TLongintArray; L, R: Longint);
+var
+  I, J, P, T: Longint;
+begin
+  repeat
+    I := L;
+    J := R;
+    P := Idx[(L + R) div 2];
+    repeat
+      while CompareDedup(Recs, Idx[I], P) < 0 do
+        Inc(I);
+      while CompareDedup(Recs, Idx[J], P) > 0 do
+        Dec(J);
+      if I <= J then
+      begin
+        T := Idx[I];
+        Idx[I] := Idx[J];
+        Idx[J] := T;
+        Inc(I);
+        Dec(J);
+      end;
+    until I > J;
+    { recurse into the smaller half so that the nesting stays logarithmic }
+    if (J - L) < (R - I) then
+    begin
+      if L < J then
+        SortByDedupKey(Recs, Idx, L, J);
+      L := I;
+    end else
+    begin
+      if I < R then
+        SortByDedupKey(Recs, Idx, I, R);
+      R := J;
+    end;
+  until L >= R;
+end;
+
 function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
 begin
   if not SortBase then
@@ -413,33 +502,52 @@ begin
     AtPut(I, Recs[Idx[I]]);
 end;
 
+{ Removes messages repeating an earlier one, the first copy is kept.
+
+  Messages are indexed by all the compared fields at once, so duplicates end
+  up next to each other and are found in a single pass instead of comparing
+  every message with every other one. The collection is then compacted in
+  one pass too, rather than shifting its tail on every removal. }
+
 procedure TIndexRecCollection.DedupByKey;
 var
-  I, J: Longint;
-  R1, R2: PIndexRec;
+  Recs: TIndexRecArray;
+  Idx: TLongintArray;
+  Dup: TBoolArray;
+  N, I, K: Longint;
 begin
-  I := 0;
-  while I < Count - 1 do
+  N := Count;
+  if N < 2 then
+    Exit;
+
+  SetLength(Recs, N);
+  SetLength(Idx, N);
+  SetLength(Dup, N);
+  for I := 0 to N - 1 do
   begin
-    R1 := At(I);
-    J := I + 1;
-    while J < Count do
-    begin
-      R2 := At(J);
-      if (R1^.MSGID^ = R2^.MSGID^) and
-         (R1^.FromName^ = R2^.FromName^) and
-         (R1^.ToName^ = R2^.ToName^) and
-         (R1^.Subject^ = R2^.Subject^) and
-         (AddressCompare(R1^.FromAddress, R2^.FromAddress) = 0) and
-         (AddressCompare(R1^.ToAddress, R2^.ToAddress) = 0) and
-         (R1^.WrittenTimeUTC = R2^.WrittenTimeUTC)
-      then
-        AtFree(J)
-      else
-        Inc(J);
-    end;
-    Inc(I);
+    Recs[I] := At(I);
+    Idx[I] := I;
+    Dup[I] := False;
   end;
+  SortByDedupKey(Recs, Idx, 0, N - 1);
+
+  { within a run of equal keys the index keeps the original order, so the
+    first message of the run is the one to keep }
+  for I := 1 to N - 1 do
+    if CompareDedupKey(Recs[Idx[I - 1]], Recs[Idx[I]]) = 0 then
+      Dup[Idx[I]] := True;
+
+  K := 0;
+  for I := 0 to N - 1 do
+    if Dup[I] then
+      FreeItem(Recs[I])
+    else
+    begin
+      AtPut(K, Recs[I]);
+      Inc(K);
+    end;
+  while Count > K do
+    AtDelete(Count - 1);
 end;
 
 begin
