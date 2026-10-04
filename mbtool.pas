@@ -64,32 +64,20 @@ begin
   PS := nil;
 end;
 
-function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
+procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var Format, Path: String);
 begin
-  if not SortBase then
-    Compare := -1
-  else
-  if PIndexRec(Key1)^.WrittenTimeUTC < PIndexRec(Key2)^.WrittenTimeUTC then
-    Compare := -1
-  else
-  if PIndexRec(Key1)^.WrittenTimeUTC > PIndexRec(Key2)^.WrittenTimeUTC then
-    Compare := 1
-  else
-    Compare := CompareStr(PIndexRec(Key1)^.Subject^, PIndexRec(Key2)^.Subject^);
-end;
-
-procedure TIndexRecCollection.FreeItem(Item: Pointer);
-begin
-  with TIndexRec(Item^) do
-  begin
-    DisposePString(FromName);
-    DisposePString(ToName);
-    DisposePString(Subject);
-    DisposePString(MSGID);
-    if SortBase then
-      DisposePString(REPLY);
+  SplitID(S, TMBF, Path);
+  case TMBF of
+    mbfJam: Format := 'JAM';
+    mbfMSG: Format := 'MSG';
+    mbfSquish: Format := 'Squish';
+    mbfUnknown: Format := 'Unknown';
   end;
-  Dispose(PIndexRec(Item));
+  if TMBF = mbfUnknown then
+  begin
+    WriteLn('[ERR] Invalid message base specification: ', S);
+    Halt(1);
+  end;
 end;
 
 { orders messages by MSGID, equal MSGIDs keep their original order }
@@ -188,6 +176,34 @@ begin
       R := J;
     end;
   until L >= R;
+end;
+
+function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
+begin
+  if not SortBase then
+    Compare := -1
+  else
+  if PIndexRec(Key1)^.WrittenTimeUTC < PIndexRec(Key2)^.WrittenTimeUTC then
+    Compare := -1
+  else
+  if PIndexRec(Key1)^.WrittenTimeUTC > PIndexRec(Key2)^.WrittenTimeUTC then
+    Compare := 1
+  else
+    Compare := CompareStr(PIndexRec(Key1)^.Subject^, PIndexRec(Key2)^.Subject^);
+end;
+
+procedure TIndexRecCollection.FreeItem(Item: Pointer);
+begin
+  with TIndexRec(Item^) do
+  begin
+    DisposePString(FromName);
+    DisposePString(ToName);
+    DisposePString(Subject);
+    DisposePString(MSGID);
+    if SortBase then
+      DisposePString(REPLY);
+  end;
+  Dispose(PIndexRec(Item));
 end;
 
 { Reorders messages so that every reply follows the message it replies to.
@@ -423,22 +439,6 @@ begin
         Inc(J);
     end;
     Inc(I);
-  end;
-end;
-
-procedure DecodeMessageBaseID(const S: String; var TMBF: TMessageBaseFormat; var Format, Path: String);
-begin
-  SplitID(S, TMBF, Path);
-  case TMBF of
-    mbfJam: Format := 'JAM';
-    mbfMSG: Format := 'MSG';
-    mbfSquish: Format := 'Squish';
-    mbfUnknown: Format := 'Unknown';
-  end;
-  if TMBF = mbfUnknown then
-  begin
-    WriteLn('[ERR] Invalid message base specification: ', S);
-    Halt(1);
   end;
 end;
 
