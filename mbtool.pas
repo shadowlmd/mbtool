@@ -2,6 +2,7 @@
 
 uses
   SysUtils,
+  Math,
   Objects,
   skMHL,
   skOpen,
@@ -41,6 +42,11 @@ type
   TLongintArray = array of Longint;
   TInt64Array = array of Int64;
   TBoolArray = array of Boolean;
+  PIndexRecArray = ^TIndexRecArray;
+  PInt64Array = ^TInt64Array;
+
+  { compares two positions of the data being sorted }
+  TIndexCompare = function(Data: Pointer; A, B: Longint): Longint;
 
 var
   SourceBase, DestBase: PMessageBase;
@@ -80,157 +86,60 @@ begin
   end;
 end;
 
-{ orders messages by MSGID, equal MSGIDs keep their original order }
-function CompareMSGID(var Recs: TIndexRecArray; A, B: Longint): Longint;
+{ fetches the value of a kludge, the value is empty when the message has none }
+function GetKludgeValue(Base: PMessageBase; const Name: String; var Value: String): Boolean;
 begin
-  if Recs[A]^.MSGID^ < Recs[B]^.MSGID^ then
-    Result := -1
+  Result := Base^.GetKludge(Name, Value);
+  if Result then
+    Value := Trim(Copy(Value, Length(Name) + 1, 255))
   else
-  if Recs[A]^.MSGID^ > Recs[B]^.MSGID^ then
-    Result := 1
-  else
-    Result := A - B;
+    Value := '';
 end;
 
-procedure SortByMSGID(var Recs: TIndexRecArray; var Idx: TLongintArray; L, R: Longint);
-var
-  I, J, P, T: Longint;
+{ orders messages by MSGID, equal MSGIDs keep their original order }
+function CompareMSGID(Data: Pointer; A, B: Longint): Longint;
 begin
-  repeat
-    I := L;
-    J := R;
-    P := Idx[(L + R) div 2];
-    repeat
-      while CompareMSGID(Recs, Idx[I], P) < 0 do
-        Inc(I);
-      while CompareMSGID(Recs, Idx[J], P) > 0 do
-        Dec(J);
-      if I <= J then
-      begin
-        T := Idx[I];
-        Idx[I] := Idx[J];
-        Idx[J] := T;
-        Inc(I);
-        Dec(J);
-      end;
-    until I > J;
-    { recurse into the smaller half so that the nesting stays logarithmic }
-    if (J - L) < (R - I) then
-    begin
-      if L < J then
-        SortByMSGID(Recs, Idx, L, J);
-      L := I;
-    end else
-    begin
-      if I < R then
-        SortByMSGID(Recs, Idx, I, R);
-      R := J;
-    end;
-  until L >= R;
+  Result := CompareStr(PIndexRecArray(Data)^[A]^.MSGID^, PIndexRecArray(Data)^[B]^.MSGID^);
+  if Result = 0 then
+    Result := A - B;
 end;
 
 { orders messages by sort key, equal keys keep their original order }
-function CompareSortKey(var Key: TInt64Array; A, B: Longint): Longint;
+function CompareSortKey(Data: Pointer; A, B: Longint): Longint;
 begin
-  if Key[A] < Key[B] then
-    Result := -1
-  else
-  if Key[A] > Key[B] then
-    Result := 1
-  else
+  Result := CompareValue(PInt64Array(Data)^[A], PInt64Array(Data)^[B]);
+  if Result = 0 then
     Result := A - B;
-end;
-
-procedure SortBySortKey(var Key: TInt64Array; var Idx: TLongintArray; L, R: Longint);
-var
-  I, J, P, T: Longint;
-begin
-  repeat
-    I := L;
-    J := R;
-    P := Idx[(L + R) div 2];
-    repeat
-      while CompareSortKey(Key, Idx[I], P) < 0 do
-        Inc(I);
-      while CompareSortKey(Key, Idx[J], P) > 0 do
-        Dec(J);
-      if I <= J then
-      begin
-        T := Idx[I];
-        Idx[I] := Idx[J];
-        Idx[J] := T;
-        Inc(I);
-        Dec(J);
-      end;
-    until I > J;
-    { recurse into the smaller half so that the nesting stays logarithmic }
-    if (J - L) < (R - I) then
-    begin
-      if L < J then
-        SortBySortKey(Key, Idx, L, J);
-      L := I;
-    end else
-    begin
-      if I < R then
-        SortBySortKey(Key, Idx, I, R);
-      R := J;
-    end;
-  until L >= R;
 end;
 
 { orders messages by the fields telling duplicates apart }
 function CompareDedupKey(R1, R2: PIndexRec): Longint;
 begin
-  if R1^.MSGID^ <> R2^.MSGID^ then
-  begin
-    if R1^.MSGID^ < R2^.MSGID^ then
-      Result := -1
-    else
-      Result := 1;
-  end else
-  if R1^.FromName^ <> R2^.FromName^ then
-  begin
-    if R1^.FromName^ < R2^.FromName^ then
-      Result := -1
-    else
-      Result := 1;
-  end else
-  if R1^.ToName^ <> R2^.ToName^ then
-  begin
-    if R1^.ToName^ < R2^.ToName^ then
-      Result := -1
-    else
-      Result := 1;
-  end else
-  if R1^.Subject^ <> R2^.Subject^ then
-  begin
-    if R1^.Subject^ < R2^.Subject^ then
-      Result := -1
-    else
-      Result := 1;
-  end else
-  begin
+  Result := CompareStr(R1^.MSGID^, R2^.MSGID^);
+  if Result = 0 then
+    Result := CompareStr(R1^.FromName^, R2^.FromName^);
+  if Result = 0 then
+    Result := CompareStr(R1^.ToName^, R2^.ToName^);
+  if Result = 0 then
+    Result := CompareStr(R1^.Subject^, R2^.Subject^);
+  if Result = 0 then
     Result := AddressCompare(R1^.FromAddress, R2^.FromAddress);
-    if Result = 0 then
-      Result := AddressCompare(R1^.ToAddress, R2^.ToAddress);
-    if Result = 0 then
-      if R1^.WrittenTimeUTC < R2^.WrittenTimeUTC then
-        Result := -1
-      else
-      if R1^.WrittenTimeUTC > R2^.WrittenTimeUTC then
-        Result := 1;
-  end;
+  if Result = 0 then
+    Result := AddressCompare(R1^.ToAddress, R2^.ToAddress);
+  if Result = 0 then
+    Result := CompareValue(R1^.WrittenTimeUTC, R2^.WrittenTimeUTC);
 end;
 
 { orders messages by dedup key, equal keys keep their original order }
-function CompareDedup(var Recs: TIndexRecArray; A, B: Longint): Longint;
+function CompareDedup(Data: Pointer; A, B: Longint): Longint;
 begin
-  Result := CompareDedupKey(Recs[A], Recs[B]);
+  Result := CompareDedupKey(PIndexRecArray(Data)^[A], PIndexRecArray(Data)^[B]);
   if Result = 0 then
     Result := A - B;
 end;
 
-procedure SortByDedupKey(var Recs: TIndexRecArray; var Idx: TLongintArray; L, R: Longint);
+{ sorts positions in Idx, Compare receives Data and two positions }
+procedure SortIndex(var Idx: TLongintArray; L, R: Longint; Compare: TIndexCompare; Data: Pointer);
 var
   I, J, P, T: Longint;
 begin
@@ -239,9 +148,9 @@ begin
     J := R;
     P := Idx[(L + R) div 2];
     repeat
-      while CompareDedup(Recs, Idx[I], P) < 0 do
+      while Compare(Data, Idx[I], P) < 0 do
         Inc(I);
-      while CompareDedup(Recs, Idx[J], P) > 0 do
+      while Compare(Data, Idx[J], P) > 0 do
         Dec(J);
       if I <= J then
       begin
@@ -256,12 +165,12 @@ begin
     if (J - L) < (R - I) then
     begin
       if L < J then
-        SortByDedupKey(Recs, Idx, L, J);
+        SortIndex(Idx, L, J, Compare, Data);
       L := I;
     end else
     begin
       if I < R then
-        SortByDedupKey(Recs, Idx, I, R);
+        SortIndex(Idx, I, R, Compare, Data);
       R := J;
     end;
   until L >= R;
@@ -270,15 +179,13 @@ end;
 function TIndexRecCollection.Compare(Key1, Key2: Pointer): Longint;
 begin
   if not SortBase then
-    Compare := -1
+    Result := -1
   else
-  if PIndexRec(Key1)^.WrittenTimeUTC < PIndexRec(Key2)^.WrittenTimeUTC then
-    Compare := -1
-  else
-  if PIndexRec(Key1)^.WrittenTimeUTC > PIndexRec(Key2)^.WrittenTimeUTC then
-    Compare := 1
-  else
-    Compare := CompareStr(PIndexRec(Key1)^.Subject^, PIndexRec(Key2)^.Subject^);
+  begin
+    Result := CompareValue(PIndexRec(Key1)^.WrittenTimeUTC, PIndexRec(Key2)^.WrittenTimeUTC);
+    if Result = 0 then
+      Result := CompareStr(PIndexRec(Key1)^.Subject^, PIndexRec(Key2)^.Subject^);
+  end;
 end;
 
 procedure TIndexRecCollection.FreeItem(Item: Pointer);
@@ -331,7 +238,7 @@ begin
   SetLength(Idx, N);
   for I := 0 to N - 1 do
     Idx[I] := I;
-  SortByMSGID(Recs, Idx, 0, N - 1);
+  SortIndex(Idx, 0, N - 1, @CompareMSGID, @Recs);
 
   SetLength(Parent, N);
   for I := 0 to N - 1 do
@@ -496,7 +403,7 @@ begin
 
   for I := 0 to N - 1 do
     Idx[I] := I;
-  SortBySortKey(Key, Idx, 0, N - 1);
+  SortIndex(Idx, 0, N - 1, @CompareSortKey, @Key);
   for I := 0 to N - 1 do
     AtPut(I, Recs[Idx[I]]);
 end;
@@ -527,7 +434,7 @@ begin
     Idx[I] := I;
     Dup[I] := False;
   end;
-  SortByDedupKey(Recs, Idx, 0, N - 1);
+  SortIndex(Idx, 0, N - 1, @CompareDedup, @Recs);
 
   { within a run of equal keys the index keeps the original order, so the
     first message of the run is the one to keep }
@@ -668,19 +575,15 @@ begin
         SourceBase^.GetWrittenDateTime(MsgDT);
         MessageBaseDateTimeToUnixDateTime(MsgDT, WrittenTimeUTC);
 
-        if SourceBase^.GetKludge(#1'MSGID:', S) then
-          S := Trim(Copy(S, 8, 255))
-        else
-          S := '';
+        GetKludgeValue(SourceBase, #1'MSGID:', S);
         MSGID := NewPString(S);
 
         if SortBase then
         begin
           I := DefTZUTCI;
           HasTZUTC := False;
-          if SourceBase^.GetKludge(#1'TZUTC:', S) then
+          if GetKludgeValue(SourceBase, #1'TZUTC:', S) then
           begin
-            S := Trim(Copy(S, 8, 255));
             Val(S, I, Err);
             if Err <> 0 then
             begin
@@ -691,10 +594,7 @@ begin
           end;
           WrittenTimeUTC := WrittenTimeUTC - ((I div 100) * 3600) - ((I mod 100) * 60);
 
-          if SourceBase^.GetKludge(#1'REPLY:', S) then
-            S := Trim(Copy(S, 8, 255))
-          else
-            S := '';
+          GetKludgeValue(SourceBase, #1'REPLY:', S);
           REPLY := NewPString(S);
         end;
       end;
