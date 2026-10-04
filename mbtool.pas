@@ -307,7 +307,6 @@ end;
   as long as the order can be repaired by moving messages without TZUTC.
   Messages are moved against their reliable date only as a last resort, when
   their own reply chain leaves no other option. }
-
 procedure TIndexRecCollection.SortReplyChains;
 var
   Recs: TIndexRecArray;
@@ -508,7 +507,6 @@ end;
   up next to each other and are found in a single pass instead of comparing
   every message with every other one. The collection is then compacted in
   one pass too, rather than shifting its tail on every removal. }
-
 procedure TIndexRecCollection.DedupByKey;
 var
   Recs: TIndexRecArray;
