@@ -110,13 +110,14 @@ begin
 
   WriteLn;
   WriteLn(AddCharR('=', '= [' + IntToStr(B^.Current) + ' of ' + IntToStr(B^.GetCount) + '] ', ScreenWidth));
-  WriteLn(PadRight(' From : ' + PadRight(Copy(B^.GetFrom, 1, 35), 35) + ' ' + AddressToStrEx(FromAddress),
-    ScreenWidth - Length(Date)), Date);
+  { the longest address 32767:32767/32767.32767 takes 23 characters,
+    the name is cut or padded to fit it and the date into 79 columns }
+  WriteLn(Format(' From : %-28.28s %-23.23s %s', [B^.GetFrom, AddressToStrEx(FromAddress), Date]));
   if IsCleanAddress(ToAddress) then
-    WriteLn(' To   : ', B^.GetTo)
+    WriteLn(Format(' To   : %.71s', [B^.GetTo]))
   else
-    WriteLn(' To   : ', PadRight(Copy(B^.GetTo, 1, 35), 35), ' ', AddressToStrEx(ToAddress));
-  WriteLn(' Subj : ', B^.GetSubject);
+    WriteLn(Format(' To   : %-28.28s %.23s', [B^.GetTo, AddressToStrEx(ToAddress)]));
+  WriteLn(Format(' Subj : %.71s', [B^.GetSubject]));
   WriteLn(StringOfChar('=', ScreenWidth));
 
   Avail := PreviewLines - FrameLines;
