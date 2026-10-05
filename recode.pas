@@ -14,6 +14,8 @@ const
 
   Quit: Boolean = False;
   DontAsk: Boolean = False;
+  { position of the current message in the base, 0 if unknown }
+  MsgIndex: Longint = 0;
 
 var
   B: PMessageBase;
@@ -87,7 +89,7 @@ const
 var
   Lines: array of String;
   FromAddress, ToAddress: TAddress;
-  Date: String;
+  Date, Caption: String;
   N, I, Avail, Head, Tail: Longint;
 begin
   B^.GetFromAndToAddress(FromAddress, ToAddress);
@@ -109,8 +111,10 @@ begin
     Dec(N);
 
   WriteLn;
-  WriteLn(AddCharR('=', '=[ ' + IntToStr(B^.Current) + ' of ' + IntToStr(B^.GetCount) + ' ]',
-    ScreenWidth - Length(Date) - 5), '[ ', Date, ' ]=');
+  Caption := '=[ Msg #' + IntToStr(B^.Current);
+  if MsgIndex <> 0 then
+    Caption := Caption + ' (' + IntToStr(MsgIndex) + ' of ' + IntToStr(B^.GetCount) + ')';
+  WriteLn(AddCharR('=', Caption + ' ]', ScreenWidth - Length(Date) - 5), '[ ', Date, ' ]=');
   WriteLn(Format(' From : %-35.35s %.35s', [B^.GetFrom, AddressToStrEx(FromAddress)]));
   if IsCleanAddress(ToAddress) then
     WriteLn(Format(' To   : %.71s', [B^.GetTo]))
@@ -253,6 +257,10 @@ begin
   B^.Seek(TargetMsgNum);
   while B^.SeekFound do
   begin
+    { the relative number is only known when walking the whole base }
+    if TargetMsgNum = 0 then
+      Inc(MsgIndex);
+
     if (TargetMsgNum <> 0) and (B^.Current <> TargetMsgNum) then
     begin
       WriteLn('Failed to seek to message #', TargetMsgNum);
