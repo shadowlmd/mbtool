@@ -2,12 +2,15 @@
 
 uses
   SysUtils,
+  StrUtils,
   skMHL,
   skOpen,
   skCommon;
 
 const
   MaxMsgSize = 524288;
+  ScreenWidth = 79;
+  PreviewLines = 40;
 
   Quit: Boolean = False;
   DontAsk: Boolean = False;
@@ -67,20 +70,71 @@ begin
   SetCodePage(Result, ToCP, True);
 end;
 
-procedure DisplayMessage;
+function FormatWrittenDate: String;
+var
+  DT: TMessageBaseDateTime;
 begin
-  WriteLn;
-  WriteLn('Msg : ', B^.Current);
-  WriteLn('From: ', B^.GetFrom);
-  WriteLn('To  : ', B^.GetTo);
-  WriteLn('Subj: ', B^.GetSubject);
-  WriteLn;
+  B^.GetWrittenDateTime(DT);
+  Result := Format('%.2d %s %.2d %.2d:%.2d:%.2d',
+    [DT.Day, MonthNumberToMonthString(DT.Month), DT.Year mod 100, DT.Hour, DT.Min, DT.Sec]);
+end;
+
+{ prints the message header in a frame followed by the message text,
+  cutting lines from the middle of the text if it does not fit the screen }
+procedure DisplayMessage;
+const
+  FrameLines = 6;
+var
+  Lines: array of String;
+  FromAddress, ToAddress: TAddress;
+  Date: String;
+  N, I, Avail, Head, Tail: Longint;
+begin
+  B^.GetFromAndToAddress(FromAddress, ToAddress);
+  Date := FormatWrittenDate;
+
+  N := 0;
+  SetLength(Lines, 64);
   B^.SetTextPos(0);
   while not B^.EndOfMessage do
   begin
     B^.GetString(S);
-    WriteLn(S);
+    if (S <> '') and (S[1] = #1) then Continue;
+    if N = Length(Lines) then
+      SetLength(Lines, N * 2);
+    Lines[N] := S;
+    Inc(N);
   end;
+  while (N > 0) and (Trim(Lines[N - 1]) = '') do
+    Dec(N);
+
+  WriteLn;
+  WriteLn(AddCharR('=', '= [' + IntToStr(B^.Current) + ' of ' + IntToStr(B^.GetCount) + '] ', ScreenWidth));
+  WriteLn(PadRight(' From : ' + PadRight(Copy(B^.GetFrom, 1, 35), 35) + ' ' + AddressToStrEx(FromAddress),
+    ScreenWidth - Length(Date)), Date);
+  if IsCleanAddress(ToAddress) then
+    WriteLn(' To   : ', B^.GetTo)
+  else
+    WriteLn(' To   : ', PadRight(Copy(B^.GetTo, 1, 35), 35), ' ', AddressToStrEx(ToAddress));
+  WriteLn(' Subj : ', B^.GetSubject);
+  WriteLn(StringOfChar('=', ScreenWidth));
+
+  Avail := PreviewLines - FrameLines;
+  if N <= Avail then
+  begin
+    for I := 0 to N - 1 do
+      WriteLn(Lines[I]);
+  end else
+  begin
+    Head := (Avail - 1) div 2;
+    Tail := Avail - 1 - Head;
+    for I := 0 to Head - 1 do
+      WriteLn(Lines[I]);
+    WriteLn('[ ', N - Head - Tail, ' lines skipped ]');
+    for I := N - Tail to N - 1 do
+      WriteLn(Lines[I]);
+  end;
+  WriteLn(StringOfChar('=', ScreenWidth));
   WriteLn;
 end;
 
