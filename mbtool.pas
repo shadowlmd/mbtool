@@ -9,11 +9,11 @@ uses
   skCommon;
 
 const
-  SortBase   : Boolean   = False;
-  DedupBase  : Boolean   = False;
-  AppendMode : Boolean   = False;
-  EchoBase   : Boolean   = False;
-  DefTZUTC   : String[5] = '0000';
+  SortBase     : Boolean   = False;
+  DedupBase    : Boolean   = False;
+  AppendMode   : Boolean   = False;
+  EchoMailMode : Boolean   = False;
+  DefTZUTC     : String[5] = '0000';
 
 type
   TIndexRecCollection = object(TSortedCollection)
@@ -126,7 +126,7 @@ begin
   if Result = 0 then
     Result := AddressCompare(R1^.FromAddress, R2^.FromAddress);
   { ToAddress means nothing in echomail and may differ between copies }
-  if (Result = 0) and not EchoBase then
+  if (Result = 0) and not EchoMailMode then
     Result := AddressCompare(R1^.ToAddress, R2^.ToAddress);
   if Result = 0 then
     Result := CompareValue(R1^.WrittenTimeUTC, R2^.WrittenTimeUTC);
@@ -514,7 +514,7 @@ begin
       DedupBase := True
     else
     if ParamStr(I) = '-echo' then
-      EchoBase := True
+      EchoMailMode := True
     else
     if ParamStr(I) = '-append' then
       AppendMode := True
