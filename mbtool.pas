@@ -12,6 +12,7 @@ const
   SortBase   : Boolean   = False;
   DedupBase  : Boolean   = False;
   AppendMode : Boolean   = False;
+  EchoBase   : Boolean   = False;
   DefTZUTC   : String[5] = '0000';
 
 type
@@ -124,7 +125,8 @@ begin
     Result := CompareStr(R1^.Subject^, R2^.Subject^);
   if Result = 0 then
     Result := AddressCompare(R1^.FromAddress, R2^.FromAddress);
-  if Result = 0 then
+  { ToAddress means nothing in echomail and may differ between copies }
+  if (Result = 0) and not EchoBase then
     Result := AddressCompare(R1^.ToAddress, R2^.ToAddress);
   if Result = 0 then
     Result := CompareValue(R1^.WrittenTimeUTC, R2^.WrittenTimeUTC);
@@ -469,7 +471,8 @@ begin
     WriteLn('  -deftz <offset>  Default UTC offset for messages without TZUTC kludge (e.g., 0300 or -0500)');
     WriteLn('  -sort            Sort messages by date and reply chains');
     WriteLn('  -dedup           Remove duplicate messages');
-    WriteLn('  -append          Append messagges to existing message base');
+    WriteLn('  -echo            Ignore destination address when looking for duplicates (echomail)');
+    WriteLn('  -append          Append messages to existing message base');
     WriteLn;
     WriteLn('Base Specification format:');
     WriteLn('  <Letter><Path>');
@@ -509,6 +512,9 @@ begin
     else
     if ParamStr(I) = '-dedup' then
       DedupBase := True
+    else
+    if ParamStr(I) = '-echo' then
+      EchoBase := True
     else
     if ParamStr(I) = '-append' then
       AppendMode := True

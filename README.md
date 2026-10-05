@@ -21,6 +21,8 @@ Options:
   -deftz <offset>  Default UTC offset for messages without TZUTC kludge (e.g., 0300 or -0500)
   -sort            Sort messages by date and reply chains
   -dedup           Remove duplicate messages
+  -echo            Ignore destination address when looking for duplicates (echomail)
+  -append          Append messages to existing message base
 
 Base Specification format:
   <Letter><Path>
